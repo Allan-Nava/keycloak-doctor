@@ -12,6 +12,7 @@ Edit this file, not the issues: a synced issue's title, body, labels and milesto
 ## Milestones
 
 - **v0.2.0** — Pull-request gating: make the audit usable as a required check on the repository that holds the realm definition, not only as a report an operator reads in a terminal. Items: KD-10, KD-11, KD-12, KD-13.
+- **v0.3.0** — Rule coverage: the seven checks a realm that looks hardened still hides — a service account holding admin roles, a default role composite nobody reads, a direct grant flow that bypasses the MFA the browser flow enforces, missing consent on a realm that brokers third-party identities, signing keys that never rotate, a WebAuthn policy that verifies nothing, and SAML assertions nobody signs. Items: KD-1, KD-2, KD-3, KD-4, KD-5, KD-6, KD-7.
 
 ## Open
 

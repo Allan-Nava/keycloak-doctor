@@ -39,6 +39,12 @@ func NewGitHub(repo, token string) *GitHub {
 	}
 }
 
+// pendingMilestone is the number a milestone gets in a dry run, where nothing is
+// created and no real number exists yet. It keeps the preview honest: an issue
+// that *would* be moved into a milestone still has to be reported, or a dry run
+// would understate the work and read as if only the milestone were missing.
+const pendingMilestone = -1
+
 // Action is one thing a sync did, or would do in a dry run.
 type Action struct {
 	Kind   string `json:"kind"`
@@ -186,6 +192,7 @@ func (g *GitHub) syncMilestones(ctx context.Context, d Doc) ([]Action, map[strin
 		if !ok {
 			acts = append(acts, Action{"create-milestone", m.Title, m.Description})
 			if g.DryRun {
+				numbers[m.Title] = pendingMilestone
 				continue
 			}
 			var created ghMilestone
@@ -284,6 +291,10 @@ func (g *GitHub) updateIssue(ctx context.Context, it Item, is ghIssue, numbers m
 	case it.Milestone != "" && want > 0 && want != current:
 		patch["milestone"] = want
 		changed = append(changed, "milestone "+it.Milestone)
+	case it.Milestone != "" && want == pendingMilestone && current == 0:
+		// Dry run only: the milestone does not exist yet, so there is no number to
+		// patch with — but the move is part of what a real run would do.
+		changed = append(changed, "milestone "+it.Milestone+" (to be created)")
 	}
 
 	if missing := missingLabels(is.Labels, it.Labels()); len(missing) > 0 {
@@ -307,11 +318,13 @@ func (g *GitHub) updateIssue(ctx context.Context, it Item, is ghIssue, numbers m
 		changed = append(changed, "state "+wantState)
 	}
 
-	if len(patch) == 0 {
+	// changed drives the report, patch drives the request: in a dry run a pending
+	// milestone changes the former without being able to fill the latter.
+	if len(changed) == 0 {
 		return Action{}, false, nil
 	}
 	act := Action{kind, it.ID, fmt.Sprintf("#%d: %s", is.Number, strings.Join(changed, ", "))}
-	if g.DryRun {
+	if g.DryRun || len(patch) == 0 {
 		return act, true, nil
 	}
 	return act, true, g.do(ctx, http.MethodPatch, fmt.Sprintf("/repos/%s/issues/%d", g.Repo, is.Number), patch, nil)

@@ -3,6 +3,17 @@
 Tutte le modifiche rilevanti a questo progetto sono documentate qui.
 Il formato segue [Keep a Changelog](https://keepachangelog.com/it/1.1.0/) e il progetto usa il [Semantic Versioning](https://semver.org/lang/it/).
 
+## [0.1.6] - 2026-08-17
+
+### Aggiunto
+
+- **Milestone `v0.3.0`** — «Rule coverage»: le sette regole che un realm apparentemente hardened nasconde ancora — un service account con ruoli di amministrazione (KD-1), un default role composite che nessuno rilegge (KD-2), un direct grant flow che bypassa l'MFA imposto sul browser flow (KD-3), consent non richiesto su un realm che fa brokering di identità terze (KD-4), chiavi di firma che non ruotano mai (KD-5), una WebAuthn policy che non verifica niente (KD-6), asserzioni SAML non firmate (KD-7). Sono le regole il prodotto: questa milestone è la prossima dopo il gating (`v0.2.0`).
+
+### Corretto
+
+- **La CI compila golangci-lint da sorgente** invece di scaricare il binario pre-compilato: un linter compilato con go1.25 va in panic quando deve caricare la stdlib di go1.26 (`file requires newer Go version`). Con `setup-go: stable` quel guasto arriva da solo, su un run che non ha cambiato niente — è successo in locale appena Homebrew ha portato il Go a 1.26.6. Nota anche in `CLAUDE.md`: dopo un major del Go locale, `go install …/golangci-lint@v2.12.2` va rifatto.
+- **Il dry-run del sync sotto-riportava il lavoro**: dichiarando una milestone nuova in `BACKLOG.md`, `backlog sync --dry-run` stampava solo `create-milestone` e non le issue che ci sarebbero finite dentro — perché in dry-run la milestone non ha ancora un numero con cui fare la PATCH. Ora quelle issue sono riportate come `milestone v0.3.0 (to be created)`: una preview che sotto-riporta è peggio di nessuna preview, e il principio è lo stesso dei finding `ERROR` (un punto cieco non può renderizzare come esito pulito). Test dedicato sul finto GitHub.
+
 ## [0.1.5] - 2026-08-17
 
 Distribuzione: `docker run` e `brew install`. Il binario `keycloak-doctor` è identico alla 0.1.0.
@@ -111,6 +122,7 @@ Prima release: audit della configurazione di un realm Keycloak, da file di expor
 - **Documentazione generata**: `docs/rules.md` prodotto da `go run ./cmd/gen-docs` dal catalogo compilato, con gate in CI che la rigenerazione sia un no-op.
 - **Test**: suite completa su fixture locali (`testdata/insecure-realm.json`, `testdata/hardened-realm.json`) e server `httptest` per l'Admin API — nessun test tocca la rete o un Keycloak reale.
 
+[0.1.6]: https://github.com/Allan-Nava/keycloak-doctor/releases/tag/v0.1.6
 [0.1.5]: https://github.com/Allan-Nava/keycloak-doctor/releases/tag/v0.1.5
 [0.1.4]: https://github.com/Allan-Nava/keycloak-doctor/releases/tag/v0.1.4
 [0.1.3]: https://github.com/Allan-Nava/keycloak-doctor/releases/tag/v0.1.3

@@ -360,6 +360,39 @@ func TestSyncDryRunTouchesNothing(t *testing.T) {
 	}
 }
 
+// A dry run must report everything a real run would do. When the milestone does
+// not exist yet there is no number to patch the issues with, and an earlier
+// version of this reported only "create-milestone" — which read as if the seven
+// issues were already in it.
+func TestDryRunReportsIssuesMovedIntoAMilestoneThatDoesNotExistYet(t *testing.T) {
+	f, gh := newFake(t)
+	doc := parseSample(t)
+
+	sync(t, gh, doc) // the issues and both milestones now exist
+
+	// Drop the milestones, keep the issues: the state of a repository where a new
+	// milestone was just declared in BACKLOG.md.
+	f.milestones = nil
+	for i := range f.issues {
+		f.issues[i].Milestone = nil
+	}
+	gh.DryRun = true
+
+	actions := sync(t, gh, doc)
+	if got, want := kinds(actions), "create-milestone:v0.2.0 create-milestone:v0.3.0 update-issue:KD-8 update-issue:KD-10 update-issue:KD-11"; got != want {
+		t.Errorf("actions = %q, want %q", got, want)
+	}
+	for _, a := range actions {
+		if a.Kind == "update-issue" && !strings.Contains(a.Detail, "to be created") {
+			t.Errorf("%s does not say the milestone is still to be created: %q", a.Ref, a.Detail)
+		}
+	}
+	// And it is still a dry run: nothing was written.
+	if len(f.milestones) != 0 {
+		t.Errorf("the dry run created %d milestone(s)", len(f.milestones))
+	}
+}
+
 func TestSyncMilestoneDescriptionUpdate(t *testing.T) {
 	f, gh := newFake(t)
 	sync(t, gh, parseSample(t))
