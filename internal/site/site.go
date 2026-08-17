@@ -20,6 +20,13 @@ import (
 //go:embed assets
 var assets embed.FS
 
+// Action is a button in a page's hero.
+type Action struct {
+	Label   string
+	Href    string
+	Primary bool
+}
+
 // Page is one HTML page of the site.
 type Page struct {
 	Slug     string        // file name without the extension; "index" is the home page
@@ -28,6 +35,8 @@ type Page struct {
 	Subtitle string        // one line under the title, optional
 	Content  template.HTML // rendered body
 	TOC      []Heading     // headings for the sidebar, level 2 only
+	Hero     bool          // render the mark, the title and the actions as a hero band
+	Actions  []Action      // hero buttons, ignored unless Hero is set
 }
 
 // Site is the whole documentation site.

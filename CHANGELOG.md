@@ -3,6 +3,24 @@
 Tutte le modifiche rilevanti a questo progetto sono documentate qui.
 Il formato segue [Keep a Changelog](https://keepachangelog.com/it/1.1.0/) e il progetto usa il [Semantic Versioning](https://semver.org/lang/it/).
 
+## [0.1.4] - 2026-08-17
+
+Restyling del sito della documentazione. Il binario `keycloak-doctor` è identico alla 0.1.0.
+
+### Aggiunto
+
+- **Hero sulla home**: mark, nome, tagline e tre azioni (`Browse the 30 rules`, `Install`, `Audit an export`) su una banda con i colori del brand. Il conteggio delle regole nel bottone viene dal catalogo compilato, non da una stringa. Le pagine senza hero tengono il titolo normale — e un test verifica che l'`<h1>` non compaia due volte.
+- **Reference a card in griglia**: le regole diventano una griglia responsive con il bordo accentato, l'id in monospace, hover sollevato e `:target` evidenziato quando si arriva da un link diretto. Le severità sono pill colorate, il campo di filtro è sticky sotto l'header e mostra `n of 30 rules` mentre si scrive.
+- **Sommario laterale attivo**: la voce della sezione che si sta leggendo si evidenzia (`IntersectionObserver`), e `scroll-padding-top` fa sì che un'anchor non finisca sotto l'header sticky.
+- **Pulsanti "Copy"** sui blocchi di codice, con le `$ ` dei prompt rimosse dal testo copiato: un transcript si incolla per eseguirlo.
+- **Restyling generale**: palette di interfaccia ripensata per chiaro e scuro (con `color-scheme` dichiarato), header sticky con blur e sottolineatura della pagina corrente, tabelle in un contenitore con bordo e hover di riga, code block con scrollbar sottile e font leggermente più stretto, `:focus-visible` visibile su tutto, e rispetto di `prefers-reduced-motion`. Layout più largo (74rem) e colonna di lettura limitata a 54rem.
+
+### Corretto
+
+- **Autolink**: `<https://…>` nel Markdown viene reso come link — prima finiva in pagina come testo con le parentesi angolari escapate (si vedeva nel README pubblicato).
+- **`IntersectionObserver` con `rootMargin` in `rem`**: il costruttore lancia, e l'eccezione spegneva anche i pulsanti "Copy". Ora il margine è in px e le tre feature JS girano ognuna nel suo `try`, così una che non parte non porta giù le altre. Trovato guardando la console di Chrome headless, non rileggendo il codice.
+- **Overflow orizzontale del hero su schermo stretto**: il `flex-basis` del blocco di testo era più larga di un telefono. Documentata in `CLAUDE.md` anche la trappola che l'aveva mascherata (headless ha un floor di viewport a 500px, quindi uno screenshot a 390px è un crop).
+
 ## [0.1.3] - 2026-08-17
 
 Identità visiva. Il binario `keycloak-doctor` è identico alla 0.1.0.
@@ -64,6 +82,7 @@ Prima release: audit della configurazione di un realm Keycloak, da file di expor
 - **Documentazione generata**: `docs/rules.md` prodotto da `go run ./cmd/gen-docs` dal catalogo compilato, con gate in CI che la rigenerazione sia un no-op.
 - **Test**: suite completa su fixture locali (`testdata/insecure-realm.json`, `testdata/hardened-realm.json`) e server `httptest` per l'Admin API — nessun test tocca la rete o un Keycloak reale.
 
+[0.1.4]: https://github.com/Allan-Nava/keycloak-doctor/releases/tag/v0.1.4
 [0.1.3]: https://github.com/Allan-Nava/keycloak-doctor/releases/tag/v0.1.3
 [0.1.2]: https://github.com/Allan-Nava/keycloak-doctor/releases/tag/v0.1.2
 [0.1.1]: https://github.com/Allan-Nava/keycloak-doctor/releases/tag/v0.1.1

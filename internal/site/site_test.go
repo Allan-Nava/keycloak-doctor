@@ -120,6 +120,53 @@ func TestTOCKeepsSectionsOnly(t *testing.T) {
 	}
 }
 
+// The home page opens on a hero: the mark, the name, the tagline and the actions
+// a first-time reader needs — and the title must not then repeat below it.
+func TestHeroReplacesThePageHeading(t *testing.T) {
+	s := testSite()
+	s.Pages[0].Hero = true
+	s.Pages[0].Actions = []Action{
+		{Label: "Browse the 30 rules", Href: "rules.html", Primary: true},
+		{Label: "Install", Href: "#install"},
+	}
+	dir := t.TempDir()
+	if err := s.Build(dir); err != nil {
+		t.Fatalf("Build: %v", err)
+	}
+	data, err := os.ReadFile(filepath.Join(dir, "index.html"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	page := string(data)
+
+	for _, want := range []string{
+		`<section class="hero">`,
+		`class="hero-mark" src="logo.svg"`,
+		`<p class="hero-tagline">One binary.</p>`,
+		`<a class="btn btn-primary" href="rules.html">Browse the 30 rules</a>`,
+		`<a class="btn" href="#install">Install</a>`,
+	} {
+		if !strings.Contains(page, want) {
+			t.Errorf("missing %q in the hero page", want)
+		}
+	}
+	if n := strings.Count(page, "<h1>"); n != 1 {
+		t.Errorf("<h1> appears %d times, want once (the hero owns it)", n)
+	}
+	if strings.Contains(page, `<p class="subtitle">`) {
+		t.Error("the subtitle is rendered twice: once in the hero and once in the page")
+	}
+
+	// A page without a hero keeps the plain heading.
+	rules, err := os.ReadFile(filepath.Join(dir, "rules.html"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(string(rules), "<h1>Rule reference</h1>") {
+		t.Error("a page without a hero lost its heading")
+	}
+}
+
 func TestPageTitles(t *testing.T) {
 	_, files := build(t)
 	contains := func(name, want string) {

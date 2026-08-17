@@ -25,6 +25,12 @@ golangci-lint run
 go run ./cmd/gen-docs         # rigenera docs/rules.md dal catalogo (gate in CI)
 go run ./cmd/backlog check    # valida BACKLOG.md (gate nel workflow Backlog)
 go run ./cmd/gen-site         # genera il sito in ./site (gate in CI, deploy su Pages)
+
+# Verifica visiva del sito (Chrome headless, niente dipendenze): screenshot + errori JS
+CHROME="/Applications/Google Chrome.app/Contents/MacOS/Google Chrome"
+"$CHROME" --headless --disable-gpu --hide-scrollbars --screenshot=out.png --window-size=1280,1400 "file://$PWD/site/index.html"
+(cd site && python3 -m http.server 8731 &) # serve su localhost: secure context, quindi il JS gira tutto
+"$CHROME" --headless --disable-gpu --enable-logging=stderr --v=0 --dump-dom http://localhost:8731/rules.html 2>&1 >/dev/null | grep CONSOLE
 go run ./cmd/backlog sync --repo Allan-Nava/keycloak-doctor --dry-run  # cosa cambierebbe nel tracker
 
 ./keycloak-doctor audit testdata/insecure-realm.json --no-color
@@ -52,6 +58,8 @@ go run ./cmd/backlog sync --repo Allan-Nava/keycloak-doctor --dry-run  # cosa ca
 - **I client disabilitati non producono finding** (non possono ottenere un token): filtrati in `scanClients`. Lo stesso per gli identity provider disabilitati e le esecuzioni `DISABLED` nei flow.
 - **Le due sorgenti danno forme diverse per i flow** (export: liste per flow con `flowAlias`; API: lista già appiattita con `providerId`): `reachableAuthenticators` gestisce entrambe, con visited set contro i cicli.
 - **`--insecure` esiste solo per i lab con chain self-signed** e va usato per il server Keycloak, non per silenziare un problema di certificati in produzione.
+- **Il sito va guardato, non solo generato**: `qlmanage -t` per gli SVG del logo e Chrome headless per le pagine. Due trappole del *solo* controllo da `file://`: (1) `navigator.clipboard` non esiste fuori da un secure context, quindi i pulsanti "Copy" non compaiono — serve `http://localhost`; (2) Chrome headless ha un **floor di viewport a 500px**, così uno screenshot a `--window-size=390` è un crop di un layout a 500px e sembra tagliato anche quando non lo è. Per misurare davvero l'overflow: iniettare uno script che confronta `documentElement.scrollWidth` con `clientWidth`.
+- **`rootMargin` di `IntersectionObserver` accetta solo px o %**, mai `rem`: con `rem` il costruttore lancia. Nel sito le tre feature JS (filtro, TOC attivo, copy) girano ognuna nel suo `try`, proprio perché un'eccezione in una non deve spegnere le altre.
 - Il campo `version` è iniettato dalla CI sui tag: non hardcodarlo.
 
 ## Puntatori

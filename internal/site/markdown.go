@@ -21,6 +21,7 @@ var (
 	refDefRe    = regexp.MustCompile(`^\[([^\]]+)\]:\s*(\S+)\s*$`)
 	linkRe      = regexp.MustCompile(`\[([^\]]*)\]\(([^)\s]+)\)`)
 	refLinkRe   = regexp.MustCompile(`\[([^\]]+)\](?:\[([^\]]*)\])?`)
+	autolinkRe  = regexp.MustCompile(`&lt;((?:https?://|mailto:)[^\s&]+)&gt;`)
 	boldRe      = regexp.MustCompile(`\*\*([^*]+)\*\*`)
 	italicRe    = regexp.MustCompile(`(^|[\s(])\*([^*\s][^*]*)\*`)
 	slugStripRe = regexp.MustCompile(`[^a-z0-9]+`)
@@ -267,6 +268,12 @@ func (r *Renderer) inline(s string) string {
 }
 
 func (r *Renderer) spans(s string) string {
+	// An autolink is written <https://…>; by the time spans runs, the brackets are
+	// already escaped entities, which is what the pattern matches.
+	s = autolinkRe.ReplaceAllStringFunc(s, func(m string) string {
+		target := autolinkRe.FindStringSubmatch(m)[1]
+		return fmt.Sprintf("<a href=%q>%s</a>", r.href(target), target)
+	})
 	s = linkRe.ReplaceAllStringFunc(s, func(m string) string {
 		p := linkRe.FindStringSubmatch(m)
 		return fmt.Sprintf("<a href=%q>%s</a>", r.href(p[2]), p[1])

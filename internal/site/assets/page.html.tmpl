@@ -5,6 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>{{ .Page.NavTitle .Site.Name }}</title>
 <meta name="description" content="{{ if .Page.Subtitle }}{{ .Page.Subtitle }}{{ else }}{{ .Site.Tagline }}{{ end }}">
+<meta name="color-scheme" content="light dark">
 <link rel="icon" href="favicon.svg" type="image/svg+xml">
 <link rel="stylesheet" href="style.css">
 </head>
@@ -12,12 +13,31 @@
 <a class="skip" href="#content">Skip to content</a>
 
 <header class="topbar">
-  <a class="brand" href="index.html"><img src="logo.svg" width="26" height="26" alt=""> {{ .Site.Name }}</a>
-  <nav aria-label="Documentation">
-    {{ range .Nav }}<a href="{{ .Href }}"{{ if .Current }} class="current" aria-current="page"{{ end }}>{{ .Label }}</a>{{ end }}
-  </nav>
-  <a class="repo" href="{{ .Site.RepoURL }}">GitHub</a>
+  <div class="topbar-inner">
+    <a class="brand" href="index.html"><img src="logo.svg" width="26" height="26" alt=""> <span>{{ .Site.Name }}</span></a>
+    <nav aria-label="Documentation">
+      {{ range .Nav }}<a href="{{ .Href }}"{{ if .Current }} class="current" aria-current="page"{{ end }}>{{ .Label }}</a>{{ end }}
+    </nav>
+    <a class="repo" href="{{ .Site.RepoURL }}" rel="noopener">GitHub&nbsp;↗</a>
+  </div>
 </header>
+
+{{ if .Page.Hero }}
+<section class="hero">
+  <div class="hero-inner">
+    <img class="hero-mark" src="logo.svg" width="88" height="88" alt="">
+    <div class="hero-text">
+      <h1>{{ .Page.Title }}</h1>
+      {{ if .Page.Subtitle }}<p class="hero-tagline">{{ .Page.Subtitle }}</p>{{ end }}
+      {{ if .Page.Actions }}
+      <p class="hero-actions">
+        {{ range .Page.Actions }}<a class="btn{{ if .Primary }} btn-primary{{ end }}" href="{{ .Href }}">{{ .Label }}</a>{{ end }}
+      </p>
+      {{ end }}
+    </div>
+  </div>
+</section>
+{{ end }}
 
 <div class="layout{{ if not .TOC }} no-toc{{ end }}">
   {{ if .TOC }}
@@ -29,16 +49,21 @@
   </aside>
   {{ end }}
 
-  <main id="content">
+  <main id="content"{{ if .TOC }} class="has-toc"{{ end }}>
+    {{ if not .Page.Hero }}
     <h1>{{ .Page.Title }}</h1>
     {{ if .Page.Subtitle }}<p class="subtitle">{{ .Page.Subtitle }}</p>{{ end }}
+    {{ end }}
     {{ .Page.Content }}
   </main>
 </div>
 
 <footer>
-  <p>{{ .Site.Name }} — source-available under the <a href="{{ .Site.RepoURL }}/blob/main/LICENSE">PolyForm Noncommercial License 1.0.0</a>. Commercial use needs <a href="commercial.html">a licence</a>.</p>
-  <p class="generated">This site is generated from the repository by <code>{{ .Site.Generator }}</code>: the reference below is the catalogue compiled into the binary, not a copy of it.</p>
+  <div class="footer-inner">
+    <p><a class="brand footer-brand" href="index.html"><img src="logo.svg" width="22" height="22" alt=""> <span>{{ .Site.Name }}</span></a></p>
+    <p>Source-available under the <a href="{{ .Site.RepoURL }}/blob/main/LICENSE">PolyForm Noncommercial License 1.0.0</a> — free for personal projects, research, education, non-profits and public institutions. Commercial use needs <a href="commercial.html">a licence</a>.</p>
+    <p class="generated">Generated from the repository by <code>{{ .Site.Generator }}</code>: the rule reference is the catalogue compiled into the binary, not a copy of it.</p>
+  </div>
 </footer>
 
 <script src="site.js"></script>

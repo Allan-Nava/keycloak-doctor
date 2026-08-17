@@ -131,14 +131,23 @@ func buildPages(catalogue []rules.Rule) ([]site.Page, error) {
 			subtitle = d.subtitle
 		}
 		content, headings := renderer.Render(body)
-		pages = append(pages, site.Page{
+		page := site.Page{
 			Slug:     d.slug,
 			Nav:      d.nav,
 			Title:    title,
 			Subtitle: subtitle,
 			Content:  content,
 			TOC:      headings,
-		})
+		}
+		if d.slug == "index" {
+			page.Hero = true
+			page.Actions = []site.Action{
+				{Label: fmt.Sprintf("Browse the %d rules", len(catalogue)), Href: "rules.html", Primary: true},
+				{Label: "Install", Href: "#install"},
+				{Label: "Audit an export", Href: "#offline-against-an-export-no-credentials-involved"},
+			}
+		}
+		pages = append(pages, page)
 
 		// The rule reference sits right after the overview in the navigation: it is
 		// what a reader comes here for.
@@ -229,6 +238,7 @@ var rulesBody = template.Must(template.New("rules").Parse(`
 {{ range .Categories }}
 <section class="category">
   <h2 id="{{ .Slug }}"><code>{{ .Name }}</code> <span class="category-count">{{ len .Rules }} rule{{ if ne (len .Rules) 1 }}s{{ end }}</span></h2>
+  <div class="rules-grid">
   {{ range .Rules }}
   <article class="rule" id="{{ .Slug }}" data-search="{{ .Search }}">
     <h3><a href="#{{ .Slug }}">{{ .ID }}</a></h3>
@@ -236,6 +246,7 @@ var rulesBody = template.Must(template.New("rules").Parse(`
     <p class="rationale">{{ .Rationale }}</p>
   </article>
   {{ end }}
+  </div>
 </section>
 {{ end }}
 `))

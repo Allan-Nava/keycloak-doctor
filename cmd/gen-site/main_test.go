@@ -118,6 +118,18 @@ func TestRulesPageCoversTheWholeCatalogue(t *testing.T) {
 	}
 }
 
+func TestRulesPageLaysCardsOutInAGrid(t *testing.T) {
+	page, err := rulesPage(rules.All())
+	if err != nil {
+		t.Fatalf("rulesPage: %v", err)
+	}
+	body := string(page.Content)
+	categories := strings.Count(body, `class="category"`)
+	if got := strings.Count(body, `class="rules-grid"`); got != categories {
+		t.Errorf("rules-grid containers = %d, want one per category (%d)", got, categories)
+	}
+}
+
 func TestRulesPageRationaleIsEscaped(t *testing.T) {
 	page, err := rulesPage(rules.All())
 	if err != nil {
