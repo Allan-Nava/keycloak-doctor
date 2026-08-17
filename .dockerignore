@@ -1,0 +1,16 @@
+# The build stage copies go.mod, cmd/ and internal/ explicitly, so this list is a
+# second line of defence: nothing else can end up in an image layer by accident,
+# and the context stays small enough that a build is instant.
+.git
+.github
+.golangci.yml
+site/
+dist/
+graphify-out/
+keycloak-doctor
+cover.out
+*.md
+docs/
+testdata/
+.claude/
+.DS_Store

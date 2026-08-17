@@ -79,3 +79,46 @@ jobs:
             sha256sum -c checksums.txt --ignore-missing
             ```
           generate_release_notes: true
+
+  # The Homebrew tap is this repository, so a release has to move the formula onto
+  # the tag it just published — otherwise `brew upgrade` keeps building the old
+  # one. Pushing several tags at once starts several runs, hence the guard and the
+  # serialised group: the formula only ever moves forward.
+  homebrew:
+    needs: release
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    concurrency:
+      group: homebrew-formula
+      cancel-in-progress: false
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+      - name: Point the formula at ${{ github.ref_name }}
+        run: |
+          formula=Formula/keycloak-doctor.rb
+          current="$(sed -n 's/.*tag: *"v\([^"]*\)".*/\1/p' "$formula")"
+          new="${GITHUB_REF_NAME#v}"
+          newest="$(printf '%s\n%s\n' "$current" "$new" | sort -V | tail -1)"
+          if [ "$current" = "$new" ] || [ "$newest" != "$new" ]; then
+            echo "formula is at v$current; not moving it to v$new"
+            exit 0
+          fi
+          sed -i \
+            -e "s|tag: *\"v[^\"]*\"|tag:      \"${GITHUB_REF_NAME}\"|" \
+            -e "s|revision: *\"[0-9a-f]*\"|revision: \"${GITHUB_SHA}\"|" \
+            "$formula"
+          # Not "git diff --quiet && {…}": under bash -e a compound whose last
+          # command is a failing test fails the whole step.
+          if git diff --quiet -- "$formula"; then
+            echo "formula unchanged"
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git commit -m "chore: formula Homebrew a ${GITHUB_REF_NAME}" -- "$formula"
+          git push origin HEAD:main
+          echo "- formula moved to \`${GITHUB_REF_NAME}\`" >> "$GITHUB_STEP_SUMMARY"

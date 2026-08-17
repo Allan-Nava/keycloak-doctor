@@ -1,0 +1,119 @@
+name: Docker
+
+# The image is published to GHCR on every tag. A pull request builds it and runs
+# the same smoke test without pushing: an image that cannot tell the hardened
+# fixture from the broken one must never reach the registry.
+on:
+  push:
+    tags: ["v*"]
+  pull_request:
+    paths:
+      - "Dockerfile"
+      - ".dockerignore"
+      - ".github/workflows/docker.yml"
+      - "cmd/**"
+      - "internal/**"
+      - "go.mod"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  packages: write
+
+concurrency:
+  group: docker-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  image:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Version from the ref
+        id: version
+        run: |
+          version="${GITHUB_REF_NAME#v}"
+          if [ "$GITHUB_REF_TYPE" != "tag" ]; then version="0.0.0-${GITHUB_SHA::7}"; fi
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+
+      - uses: docker/setup-qemu-action@v3
+      - uses: docker/setup-buildx-action@v3
+
+      # Build for this runner first and exercise it, before anything is pushed.
+      - name: Build for the smoke test
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          load: true
+          tags: keycloak-doctor:smoke
+          build-args: VERSION=${{ steps.version.outputs.version }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Smoke test the image
+        run: |
+          docker run --rm keycloak-doctor:smoke version
+          docker run --rm keycloak-doctor:smoke rules > /dev/null
+          docker run --rm -v "$PWD/testdata:/realm:ro" keycloak-doctor:smoke \
+            audit /realm/hardened-realm.json --exit-on warn --no-color
+          if docker run --rm -v "$PWD/testdata:/realm:ro" keycloak-doctor:smoke \
+            audit /realm/insecure-realm.json --exit-on bad --no-color > /dev/null; then
+            echo "::error::--exit-on bad did not gate inside the image"
+            exit 1
+          fi
+          # The image exists to be handed a production realm: it must not run as
+          # root, and it must carry no shell.
+          if [ "$(docker inspect --format '{{.Config.User}}' keycloak-doctor:smoke)" != "65532:65532" ]; then
+            echo "::error::the image does not run as an unprivileged user"
+            exit 1
+          fi
+          if docker run --rm --entrypoint /bin/sh keycloak-doctor:smoke -c "echo shell" 2>/dev/null; then
+            echo "::error::the image carries a shell"
+            exit 1
+          fi
+
+      - name: Log in to GHCR
+        if: github.event_name != 'pull_request'
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Tags and labels
+        if: github.event_name != 'pull_request'
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ghcr.io/${{ github.repository }}
+          tags: |
+            type=semver,pattern={{version}}
+            type=semver,pattern={{major}}.{{minor}}
+            type=raw,value=latest,enable=${{ github.ref_type == 'tag' }}
+
+      - name: Build and push
+        if: github.event_name != 'pull_request'
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          platforms: linux/amd64,linux/arm64
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          build-args: VERSION=${{ steps.version.outputs.version }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Summary
+        if: github.event_name != 'pull_request'
+        run: |
+          {
+            echo "### Image published"
+            echo
+            echo '```bash'
+            echo 'docker run --rm -v "$PWD:/realm:ro" ghcr.io/${{ github.repository }} audit /realm/realm-export.json'
+            echo '```'
+            echo
+            echo "Tags: ${{ steps.meta.outputs.tags }}"
+          } >> "$GITHUB_STEP_SUMMARY"

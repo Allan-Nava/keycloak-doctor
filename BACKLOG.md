@@ -46,6 +46,7 @@ Edit this file, not the issues: a synced issue's title, body, labels and milesto
 
 ## Done
 
+- **KD-20** — v0.1.5: distribuzione — immagine Docker `FROM scratch` su GHCR (multi-arch, con smoke test che distingue le fixture e verifica utente non-root e assenza di shell) e formula Homebrew nel tap che è questo repo, riallineata dal workflow di release.
 - **KD-19** — v0.1.3: logo (shield, keyhole, pulsazione) in `docs/assets/`, brand guidelines in `docs/brand.md`, mark e favicon serviti dal sito e in testa al README.
 - **KD-17** — v0.1.2: documentation site on GitHub Pages (`internal/site`, `cmd/gen-site`, `.github/workflows/pages.yml`), generated from the Markdown documents and from the compiled rule catalogue, with the reference filterable in the browser.
 - **KD-0** — v0.1.0: engine, both sources, credential scrubbing, 30 rules, three output formats, exit-code semantics, generated rule docs, full local test suite.

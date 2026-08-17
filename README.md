@@ -52,11 +52,43 @@ Severity means what it says: **BAD** is exploitable as configured, **WARN** is a
 
 ## Install
 
+### Homebrew
+
+```bash
+brew tap Allan-Nava/keycloak-doctor https://github.com/Allan-Nava/keycloak-doctor
+brew install keycloak-doctor
+```
+
+The tap is this repository — the URL is not optional, because the repo is not named `homebrew-*`. The formula cannot go to `homebrew-core`: that tap only accepts OSI-approved open-source licences, and this project is source-available under PolyForm Noncommercial. It builds from the tagged source, so Homebrew pulls Go in as a build dependency and `keycloak-doctor version` reports the real version rather than `dev`.
+
+### Docker
+
+```bash
+docker run --rm -v "$PWD:/realm:ro" ghcr.io/allan-nava/keycloak-doctor \
+  audit /realm/prod-realm.json
+```
+
+About 6 MB, built `FROM scratch`: the static binary and the root certificates, and nothing else — an image that is handed a production realm has no business also carrying a shell and a package manager. It runs as uid `65532`, needs no writable filesystem, and never writes to its input, so mount the export read-only.
+
+Against a live server, the secret still travels by environment variable, never as a flag value:
+
+```bash
+docker run --rm -e KC_AUDIT_SECRET ghcr.io/allan-nava/keycloak-doctor \
+  audit --url https://sso.example.com --realm prod \
+  --client-id keycloak-doctor --client-secret-env KC_AUDIT_SECRET
+```
+
+To keep the JSON report, mount a writable directory and point `--out-file` inside it: `-v "$PWD/out:/out" … --output json --out-file /out/audit.json`.
+
+### go install
+
 ```bash
 go install github.com/Allan-Nava/keycloak-doctor/cmd/keycloak-doctor@latest
 ```
 
-Or build from a checkout:
+### From a release, or from a checkout
+
+Static binaries for linux, macOS and Windows on amd64 and arm64 are attached to every [release](https://github.com/Allan-Nava/keycloak-doctor/releases), with a `checksums.txt` to verify them. Or build it yourself:
 
 ```bash
 go build -o keycloak-doctor ./cmd/keycloak-doctor

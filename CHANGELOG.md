@@ -3,6 +3,35 @@
 Tutte le modifiche rilevanti a questo progetto sono documentate qui.
 Il formato segue [Keep a Changelog](https://keepachangelog.com/it/1.1.0/) e il progetto usa il [Semantic Versioning](https://semver.org/lang/it/).
 
+## [0.1.5] - 2026-08-17
+
+Distribuzione: `docker run` e `brew install`. Il binario `keycloak-doctor` è identico alla 0.1.0.
+
+### Aggiunto
+
+- **Immagine Docker** su `ghcr.io/allan-nava/keycloak-doctor` (multi-arch amd64/arm64, tag `x.y.z`, `x.y` e `latest`):
+
+  ```bash
+  docker run --rm -v "$PWD:/realm:ro" ghcr.io/allan-nava/keycloak-doctor audit /realm/prod-realm.json
+  ```
+
+  ~6 MB, `FROM scratch`: il binario statico e il bundle di CA (senza cui `--url https://…` non parla con nessun server), e nient'altro — un'immagine a cui si dà un realm di produzione non ha motivo di portarsi dietro anche una shell e un package manager. Gira come uid `65532`, non serve filesystem scrivibile, e l'export si monta in sola lettura su `/realm`.
+- **Smoke test dell'immagine prima del push** nel workflow `Docker`: `version`, `rules`, la fixture hardened che passa con `--exit-on warn` e quella insicura che *deve* gatare con `--exit-on bad`, più due controlli sull'immagine stessa (utente non-root, nessuna shell eseguibile). Su pull request si costruisce e si testa senza pubblicare.
+- **Formula Homebrew** (`Formula/keycloak-doctor.rb`) — il tap **è** questo repo:
+
+  ```bash
+  brew tap Allan-Nava/keycloak-doctor https://github.com/Allan-Nava/keycloak-doctor
+  brew install keycloak-doctor
+  ```
+
+  L'URL nel `brew tap` non è opzionale, perché il repo non si chiama `homebrew-*`. La formula compila dal sorgente al tag (`url … tag:/revision:`, quindi nessuno sha256 da ricalcolare a ogni release) e inietta la versione con gli stessi `-ldflags` dei binari di release, così `keycloak-doctor version` non dice `dev`. Il suo `test do` audita un realm minimo e verifica che `realm/ssl-required` compaia e che l'exit code resti 0.
+- **Il job `homebrew` di `release.yml`** sposta `tag`/`revision` della formula sull'ultima release pubblicata e committa su `main`, serializzato e con un guardrail `sort -V` perché il push di più tag insieme avvia più run e la formula deve solo andare avanti. **Nota**: dopo un release la CI aggiunge un commit `chore:` su `main`, quindi serve un `git pull` prima del commit successivo.
+- **`--exit-on` vale anche dentro il container**: la semantica degli exit code è quella documentata, l'immagine non la cambia.
+
+### Nota sulla licenza
+
+`homebrew-core` accetta solo licenze approvate OSI, e PolyForm Noncommercial non lo è: la formula dichiara `license :cannot_represent` e vive in questo tap. Lo stesso vale per l'immagine, che porta `org.opencontainers.image.licenses=LicenseRef-PolyForm-Noncommercial-1.0.0`.
+
 ## [0.1.4] - 2026-08-17
 
 Restyling del sito della documentazione. Il binario `keycloak-doctor` è identico alla 0.1.0.
@@ -82,6 +111,7 @@ Prima release: audit della configurazione di un realm Keycloak, da file di expor
 - **Documentazione generata**: `docs/rules.md` prodotto da `go run ./cmd/gen-docs` dal catalogo compilato, con gate in CI che la rigenerazione sia un no-op.
 - **Test**: suite completa su fixture locali (`testdata/insecure-realm.json`, `testdata/hardened-realm.json`) e server `httptest` per l'Admin API — nessun test tocca la rete o un Keycloak reale.
 
+[0.1.5]: https://github.com/Allan-Nava/keycloak-doctor/releases/tag/v0.1.5
 [0.1.4]: https://github.com/Allan-Nava/keycloak-doctor/releases/tag/v0.1.4
 [0.1.3]: https://github.com/Allan-Nava/keycloak-doctor/releases/tag/v0.1.3
 [0.1.2]: https://github.com/Allan-Nava/keycloak-doctor/releases/tag/v0.1.2
