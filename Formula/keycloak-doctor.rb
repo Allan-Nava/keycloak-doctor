@@ -14,8 +14,8 @@ class KeycloakDoctor < Formula
   desc "Audit a Keycloak realm for the mistakes that actually get exploited"
   homepage "https://allan-nava.github.io/keycloak-doctor/"
   url "https://github.com/Allan-Nava/keycloak-doctor.git",
-      tag:      "v0.1.6",
-      revision: "1fc2f7c707d144ae927a12d43b2f30311c97e46b"
+      tag:      "v0.1.7",
+      revision: "5b028d23ebfa364e3679ed941d5cd1a2d2d02f2f"
   license :cannot_represent
   head "https://github.com/Allan-Nava/keycloak-doctor.git", branch: "main"
 
