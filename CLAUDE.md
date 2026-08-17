@@ -23,6 +23,7 @@ go vet ./...
 golangci-lint run
 go run ./cmd/gen-docs         # rigenera docs/rules.md dal catalogo (gate in CI)
 go run ./cmd/backlog check    # valida BACKLOG.md (gate nel workflow Backlog)
+go run ./cmd/gen-site         # genera il sito in ./site (gate in CI, deploy su Pages)
 go run ./cmd/backlog sync --repo Allan-Nava/keycloak-doctor --dry-run  # cosa cambierebbe nel tracker
 
 ./keycloak-doctor audit testdata/insecure-realm.json --no-color
@@ -38,6 +39,7 @@ go run ./cmd/backlog sync --repo Allan-Nava/keycloak-doctor --dry-run  # cosa ca
 - `internal/output/` — renderer: `Text` (terminale), `Markdown` (report/PR comment), `JSON` (contratto di gating). I renderer vedono solo finding, mai il modello del realm.
 - `cmd/keycloak-doctor/` — CLI a sottocomandi (`audit`, `rules`, `version`), `version` iniettata con `-ldflags "-X main.version=..."`.
 - `cmd/gen-docs/` — genera `docs/rules.md` dal catalogo compilato.
+- `internal/site/` + `cmd/gen-site/` — sito della documentazione: renderer di un **subset** di Markdown (heading, paragrafi, code fence, tabelle, liste annidate, reference link, span inline) più layout/asset in `internal/site/assets/` via `embed`. Le pagine sono una proiezione di README/BACKLOG/SECURITY/COMMERCIAL/CHANGELOG e del catalogo compilato; il renderer è l'unico escaper tra un `.md` e la pagina servita, e c'è un test che lo verifica.
 - `internal/backlog/` + `cmd/backlog/` — parser di `BACKLOG.md` e mirror idempotente su milestone/issue GitHub (stdlib, `httptest` nei test). Niente a che vedere con l'audit: è il plumbing del progetto, non entra nel binario `keycloak-doctor`.
 
 ## Trappole note / regole tecniche
@@ -53,6 +55,7 @@ go run ./cmd/backlog sync --repo Allan-Nava/keycloak-doctor --dry-run  # cosa ca
 
 ## Puntatori
 
-- Backlog: `BACKLOG.md` · CI: `.github/workflows/ci.yml` · Release: `.github/workflows/release.yml` · Backlog sync: `.github/workflows/backlog.yml`
+- Backlog: `BACKLOG.md` · CI: `.github/workflows/ci.yml` · Release: `.github/workflows/release.yml` · Backlog sync: `.github/workflows/backlog.yml` · Pages: `.github/workflows/pages.yml`
+- Sito: <https://allan-nava.github.io/keycloak-doctor/>
 - Catalogo regole generato: `docs/rules.md` · Fixture: `testdata/`
 - Repo affini (stessa famiglia e stesse convenzioni): `~/projects/github.com/checkfleet`, `segcheck`, `nomad-lens`, `nats-lens`, `ansible-vars-lens`

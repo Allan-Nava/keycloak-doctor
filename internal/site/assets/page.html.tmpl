@@ -1,0 +1,45 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>{{ .Page.NavTitle .Site.Name }}</title>
+<meta name="description" content="{{ if .Page.Subtitle }}{{ .Page.Subtitle }}{{ else }}{{ .Site.Tagline }}{{ end }}">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<a class="skip" href="#content">Skip to content</a>
+
+<header class="topbar">
+  <a class="brand" href="index.html">{{ .Site.Name }}</a>
+  <nav aria-label="Documentation">
+    {{ range .Nav }}<a href="{{ .Href }}"{{ if .Current }} class="current" aria-current="page"{{ end }}>{{ .Label }}</a>{{ end }}
+  </nav>
+  <a class="repo" href="{{ .Site.RepoURL }}">GitHub</a>
+</header>
+
+<div class="layout{{ if not .TOC }} no-toc{{ end }}">
+  {{ if .TOC }}
+  <aside class="toc" aria-label="On this page">
+    <p class="toc-title">On this page</p>
+    <ol>
+      {{ range .TOC }}<li><a href="#{{ .ID }}">{{ .Text }}</a></li>{{ end }}
+    </ol>
+  </aside>
+  {{ end }}
+
+  <main id="content">
+    <h1>{{ .Page.Title }}</h1>
+    {{ if .Page.Subtitle }}<p class="subtitle">{{ .Page.Subtitle }}</p>{{ end }}
+    {{ .Page.Content }}
+  </main>
+</div>
+
+<footer>
+  <p>{{ .Site.Name }} — source-available under the <a href="{{ .Site.RepoURL }}/blob/main/LICENSE">PolyForm Noncommercial License 1.0.0</a>. Commercial use needs <a href="commercial.html">a licence</a>.</p>
+  <p class="generated">This site is generated from the repository by <code>{{ .Site.Generator }}</code>: the reference below is the catalogue compiled into the binary, not a copy of it.</p>
+</footer>
+
+<script src="site.js"></script>
+</body>
+</html>

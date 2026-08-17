@@ -2,6 +2,10 @@
 # NOT also match the cmd/keycloak-doctor/ package directory.
 /keycloak-doctor
 /dist/
+
+# Generated documentation site: rebuilt by `go run ./cmd/gen-site` and published
+# by the Pages workflow, never committed.
+/site/
 .DS_Store
 cover.out
 

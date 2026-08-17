@@ -38,6 +38,10 @@ jobs:
             git diff -- docs/rules.md
             exit 1
           fi
+      # The site is generated from the documents and the catalogue, so a change that
+      # breaks the generator has to fail here rather than on the Pages deploy.
+      - name: Documentation site builds
+        run: go run ./cmd/gen-site --out "$RUNNER_TEMP/site"
       # The audit must be able to tell a hardened realm from a broken one, end to
       # end, through the real binary and not just in unit tests.
       - name: Smoke test the built binary

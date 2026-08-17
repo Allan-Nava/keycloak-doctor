@@ -3,6 +3,18 @@
 Tutte le modifiche rilevanti a questo progetto sono documentate qui.
 Il formato segue [Keep a Changelog](https://keepachangelog.com/it/1.1.0/) e il progetto usa il [Semantic Versioning](https://semver.org/lang/it/).
 
+## [0.1.2] - 2026-08-17
+
+Sito della documentazione su GitHub Pages. Il binario `keycloak-doctor` è identico alla 0.1.0.
+
+### Aggiunto
+
+- **Sito della documentazione** (`internal/site`, `cmd/gen-site`, workflow `Pages`): <https://allan-nava.github.io/keycloak-doctor/>, rigenerato e ripubblicato a ogni push su `main`. Chiude **KD-17**.
+- **Ogni pagina è una proiezione del repo**: overview da `README.md`, roadmap da `BACKLOG.md`, security, uso commerciale, changelog — e la **rule reference generata dal catalogo compilato nel binario**, non da una copia a mano che finirebbe per descrivere regole che il tool non ha più. Un link relativo a un `.md` viene riscritto sulla pagina che lo serve; ogni altro link relativo (LICENSE, un workflow, un file sorgente) punta al repo su GitHub.
+- **Renderer Markdown proprio** (`internal/site/markdown.go`), solo stdlib: heading con anchor, paragrafi, code fence, tabelle (che scrollano nel loro box), liste annidate con continuazioni, thematic break, link reference (`[0.1.1]` in fondo al changelog diventa un link alla release) e span inline, incluso il bold che avvolge un code span. Il subset è un tetto deliberato: l'input è la nostra documentazione, e così il sito resta un `go run` senza toolchain. Il renderer è l'unico escaper tra un `.md` e la pagina servita — c'è un test che prova a farci passare `<script>` da paragrafo, heading, lista, tabella, code fence e link.
+- **Reference filtrabile**: campo di ricerca su id, titolo e razionale delle 30 regole, con le categorie vuote che si nascondono. È l'unico script del sito, la pagina funziona anche senza. Layout responsive, tema chiaro/scuro secondo `prefers-color-scheme`, nessun font remoto, nessuna dipendenza: un CSS e uno JS serviti dallo stesso host.
+- **Gate in CI**: `go run ./cmd/gen-site` gira su ogni push e pull request, così una modifica che rompe il generatore fallisce in CI e non sul deploy di Pages.
+
 ## [0.1.1] - 2026-08-17
 
 Solo plumbing del progetto: il binario `keycloak-doctor` è identico alla 0.1.0.
@@ -41,5 +53,6 @@ Prima release: audit della configurazione di un realm Keycloak, da file di expor
 - **Documentazione generata**: `docs/rules.md` prodotto da `go run ./cmd/gen-docs` dal catalogo compilato, con gate in CI che la rigenerazione sia un no-op.
 - **Test**: suite completa su fixture locali (`testdata/insecure-realm.json`, `testdata/hardened-realm.json`) e server `httptest` per l'Admin API — nessun test tocca la rete o un Keycloak reale.
 
+[0.1.2]: https://github.com/Allan-Nava/keycloak-doctor/releases/tag/v0.1.2
 [0.1.1]: https://github.com/Allan-Nava/keycloak-doctor/releases/tag/v0.1.1
 [0.1.0]: https://github.com/Allan-Nava/keycloak-doctor/releases/tag/v0.1.0

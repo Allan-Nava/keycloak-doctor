@@ -39,7 +39,6 @@ Edit this file, not the issues: a synced issue's title, body, labels and milesto
 - **KD-14** — Per-rule severity override from a config file (`--config`), for the thresholds that are genuinely site policy: token lifespans, session lifespans, password length.
 - **KD-15** — `--explain RULE`: print the rationale, the threshold applied and the exact admin console path, for the rule an operator is arguing with.
 - **KD-16** — Diff mode: `audit --against previous.json` to show what changed in a realm's posture between two exports.
-- **KD-17** — Docs site (GitHub Pages) built from `docs/`, with the generated rule catalogue as its reference section.
 
 ### Project plumbing
 
@@ -47,4 +46,5 @@ Edit this file, not the issues: a synced issue's title, body, labels and milesto
 
 ## Done
 
+- **KD-17** — v0.1.2: documentation site on GitHub Pages (`internal/site`, `cmd/gen-site`, `.github/workflows/pages.yml`), generated from the Markdown documents and from the compiled rule catalogue, with the reference filterable in the browser.
 - **KD-0** — v0.1.0: engine, both sources, credential scrubbing, 30 rules, three output formats, exit-code semantics, generated rule docs, full local test suite.

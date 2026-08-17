@@ -26,9 +26,11 @@ WARN   realm/browser-mfa               demo                     the bound browse
 
 It is **not** a scanner and not a policy engine: no agents, no server, no CRDs, no cluster. One binary, two inputs, three output formats.
 
+Documentation, with the searchable rule reference: **<https://allan-nava.github.io/keycloak-doctor/>**.
+
 ## What it checks
 
-30 rules in 7 categories. The full catalogue with the rationale for each is in [docs/rules.md](docs/rules.md), and it also lives in the binary:
+30 rules in 7 categories. The full catalogue with the rationale for each is in [docs/rules.md](docs/rules.md) — browsable and filterable on the [rule reference](https://allan-nava.github.io/keycloak-doctor/rules.html) — and it also lives in the binary:
 
 ```console
 $ keycloak-doctor rules --only client
