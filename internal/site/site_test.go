@@ -13,6 +13,7 @@ func testSite() Site {
 		Tagline:   "Audit a Keycloak realm.",
 		RepoURL:   "https://github.com/Allan-Nava/keycloak-doctor",
 		Generator: "go run ./cmd/gen-site",
+		Files:     map[string][]byte{"logo.svg": []byte("<svg/>"), "favicon.svg": []byte("<svg/>")},
 		Pages: []Page{
 			{Slug: "index", Nav: "Overview", Title: "keycloak-doctor", Subtitle: "One binary.", Content: "<p>home</p>"},
 			{Slug: "rules", Nav: "Rules", Title: "Rule reference", Content: "<p>rules</p>", TOC: []Heading{
@@ -47,13 +48,42 @@ func build(t *testing.T) (string, map[string]string) {
 
 func TestBuildWritesEveryPageAndAsset(t *testing.T) {
 	_, files := build(t)
-	for _, name := range []string{"index.html", "rules.html", "hidden.html", "style.css", "site.js"} {
+	for _, name := range []string{"index.html", "rules.html", "hidden.html", "style.css", "site.js", "logo.svg", "favicon.svg"} {
 		if _, ok := files[name]; !ok {
 			t.Errorf("%s was not written", name)
 		}
 	}
-	if len(files) != 5 {
-		t.Errorf("files = %v, want exactly the three pages and the two assets", files)
+	if len(files) != 7 {
+		t.Errorf("files = %v, want exactly the three pages, the two assets and the two brand files", files)
+	}
+	if files["logo.svg"] != "<svg/>" {
+		t.Errorf("logo.svg was rewritten: %q", files["logo.svg"])
+	}
+}
+
+// The mark identifies the tool in a browser tab and in the header of every page.
+func TestBrandIsWiredIntoEveryPage(t *testing.T) {
+	_, files := build(t)
+	for name, page := range files {
+		if !strings.HasSuffix(name, ".html") {
+			continue
+		}
+		if !strings.Contains(page, `<link rel="icon" href="favicon.svg"`) {
+			t.Errorf("%s has no favicon", name)
+		}
+		if !strings.Contains(page, `<img src="logo.svg"`) {
+			t.Errorf("%s has no mark in the header", name)
+		}
+	}
+}
+
+// An extra file has to stay next to the pages: a name with a path in it would let
+// the generator write outside the output directory.
+func TestBuildRejectsAPathAsAnExtraFileName(t *testing.T) {
+	s := testSite()
+	s.Files = map[string][]byte{filepath.Join("..", "escaped.svg"): []byte("<svg/>")}
+	if err := s.Build(t.TempDir()); err == nil {
+		t.Fatal("Build accepted an extra file name with a path in it")
 	}
 }
 

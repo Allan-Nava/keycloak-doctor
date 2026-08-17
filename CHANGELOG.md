@@ -3,6 +3,17 @@
 Tutte le modifiche rilevanti a questo progetto sono documentate qui.
 Il formato segue [Keep a Changelog](https://keepachangelog.com/it/1.1.0/) e il progetto usa il [Semantic Versioning](https://semver.org/lang/it/).
 
+## [0.1.3] - 2026-08-17
+
+Identità visiva. Il binario `keycloak-doctor` è identico alla 0.1.0.
+
+### Aggiunto
+
+- **Logo** (`docs/assets/logo.svg`) e **favicon** (`docs/assets/favicon.svg`): shield (a cosa serve il tool), keyhole (di chi è la configurazione che legge) e una pulsazione che lo attraversa (cosa produce: una diagnosi con razionale e fix). **Niente checkmark**: una spunta promette un verdetto che il tool non dà — `OK` significa "la regola è girata ed è passata", mai "questo realm è sicuro". SVG scritti a mano, nessun riferimento esterno, nessun font, nessun raster: dal favicon alla slide, poche centinaia di byte. La variante favicon è lo stesso segno con il dettaglio che una tab da 16px non risolve tolto via.
+- **Brand guidelines** (`docs/brand.md`, pagina *Brand* del sito): il nome (`keycloak-doctor`, minuscolo, monospace, e non è un prodotto Keycloak/Red Hat), il significato dei tre elementi, i tre colori con i loro hex, cosa fare e cosa non fare, e come rigenerare un'anteprima.
+- **Mark nel sito e nel README**: `cmd/gen-site` copia i due file accanto alle pagine (`Site.Files`), il layout li usa come `<link rel="icon">` e nell'header di ogni pagina, e il README apre con lo stesso file. Una sola copia del segno: non esiste un secondo posto da aggiornare. Test: ogni pagina generata ha favicon e mark, un nome di file con un path dentro viene rifiutato, e il blocco HTML iniziale del README non finisce nel corpo della pagina.
+- Chiude **KD-19**.
+
 ## [0.1.2] - 2026-08-17
 
 Sito della documentazione su GitHub Pages. Il binario `keycloak-doctor` è identico alla 0.1.0.
@@ -53,6 +64,7 @@ Prima release: audit della configurazione di un realm Keycloak, da file di expor
 - **Documentazione generata**: `docs/rules.md` prodotto da `go run ./cmd/gen-docs` dal catalogo compilato, con gate in CI che la rigenerazione sia un no-op.
 - **Test**: suite completa su fixture locali (`testdata/insecure-realm.json`, `testdata/hardened-realm.json`) e server `httptest` per l'Admin API — nessun test tocca la rete o un Keycloak reale.
 
+[0.1.3]: https://github.com/Allan-Nava/keycloak-doctor/releases/tag/v0.1.3
 [0.1.2]: https://github.com/Allan-Nava/keycloak-doctor/releases/tag/v0.1.2
 [0.1.1]: https://github.com/Allan-Nava/keycloak-doctor/releases/tag/v0.1.1
 [0.1.0]: https://github.com/Allan-Nava/keycloak-doctor/releases/tag/v0.1.0

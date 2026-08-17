@@ -1,0 +1,25 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64" role="img" aria-label="keycloak-doctor">
+  <title>keycloak-doctor</title>
+  <!-- The mark: a shield (what the tool is for), a keyhole (whose configuration
+       it reads) and a pulse crossing it (what it does — a diagnosis, not a
+       verdict). It sits on a solid tile so it reads on a light page, on a dark
+       one and as a 16px favicon. -->
+  <defs>
+    <clipPath id="shield">
+      <path d="M32 8 52 14.5V32c0 11.6-8.4 20.6-20 24-11.6-3.4-20-12.4-20-24V14.5Z"/>
+    </clipPath>
+  </defs>
+
+  <rect width="64" height="64" rx="14" fill="#0B3A66"/>
+
+  <path d="M32 8 52 14.5V32c0 11.6-8.4 20.6-20 24-11.6-3.4-20-12.4-20-24V14.5Z" fill="#EAF2FB"/>
+
+  <!-- keyhole, punched back to the tile colour -->
+  <circle cx="32" cy="26" r="6.2" fill="#0B3A66"/>
+  <path d="M29.2 30h5.6l1.9 9H27.3Z" fill="#0B3A66"/>
+
+  <!-- the pulse, clipped so it belongs to the shield instead of crossing it -->
+  <g clip-path="url(#shield)">
+    <path d="M8 47H26L30 42l4 9.5 3-4.5H56" fill="none" stroke="#F0A02A" stroke-width="3.4" stroke-linecap="round" stroke-linejoin="round"/>
+  </g>
+</svg>

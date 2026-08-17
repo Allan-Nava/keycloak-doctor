@@ -13,6 +13,7 @@ import (
 	"io/fs"
 	"os"
 	"path/filepath"
+	"sort"
 	"strings"
 )
 
@@ -36,6 +37,10 @@ type Site struct {
 	RepoURL   string
 	Pages     []Page
 	Generator string // the command that produced the site, shown in the footer
+	// Files are extra static files to serve next to the pages, by name. The logo
+	// lives in the repository rather than in this package's assets, because the
+	// README uses the same file: one mark, one copy of it.
+	Files map[string][]byte
 }
 
 type pageData struct {
@@ -90,6 +95,20 @@ func (s Site) Build(dir string) error {
 			return err
 		}
 		if err := os.WriteFile(filepath.Join(dir, name), data, 0o644); err != nil { //nolint:gosec // a public web asset
+			return err
+		}
+	}
+
+	names := make([]string, 0, len(s.Files))
+	for name := range s.Files {
+		names = append(names, name)
+	}
+	sort.Strings(names)
+	for _, name := range names {
+		if strings.ContainsRune(name, filepath.Separator) || name == ".." {
+			return fmt.Errorf("extra file %q must be a plain file name", name)
+		}
+		if err := os.WriteFile(filepath.Join(dir, name), s.Files[name], 0o644); err != nil { //nolint:gosec // a public web asset
 			return err
 		}
 	}

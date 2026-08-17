@@ -33,6 +33,34 @@ func TestSplitLiftsTitleAndSubtitle(t *testing.T) {
 	}
 }
 
+func TestSplitSkipsALeadingHTMLBlock(t *testing.T) {
+	// The README opens with the logo; the layout renders the mark itself, so the
+	// block must not reach the page body.
+	title, subtitle, body := split("<img src=\"docs/assets/logo.svg\" width=\"76\" alt=\"\">\n\n# keycloak-doctor\n\n**Audit a Keycloak realm.**\n\n## Install\n")
+	if title != "keycloak-doctor" || subtitle != "Audit a Keycloak realm." {
+		t.Errorf("title = %q, subtitle = %q", title, subtitle)
+	}
+	if strings.Contains(body, "<img") {
+		t.Errorf("the HTML block leaked into the body:\n%s", body)
+	}
+}
+
+func TestBrandFilesAreServedWithTheSite(t *testing.T) {
+	// The mark lives in the repository and is copied verbatim: the README and the
+	// site must not drift onto two different files.
+	for name, path := range brandFiles {
+		if !strings.HasPrefix(path, "docs/assets/") || !strings.HasSuffix(name, ".svg") {
+			t.Errorf("%s -> %s: the mark is expected under docs/assets/ as an SVG", name, path)
+		}
+	}
+	if _, ok := brandFiles["favicon.svg"]; !ok {
+		t.Error("no favicon among the brand files")
+	}
+	if got := rewrite("assets/logo.svg"); got != "logo.svg" {
+		t.Errorf("rewrite(\"assets/logo.svg\") = %q, want the file the site serves", got)
+	}
+}
+
 func TestRewriteLinks(t *testing.T) {
 	for _, tc := range []struct{ in, want string }{
 		{"docs/rules.md", "rules.html"},

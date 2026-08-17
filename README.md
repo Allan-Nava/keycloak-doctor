@@ -1,3 +1,5 @@
+<img src="docs/assets/logo.svg" width="76" height="76" alt="">
+
 # keycloak-doctor
 
 **Audit a Keycloak realm for the mistakes that actually get exploited — from an export file or a live server, in one static Go binary.**

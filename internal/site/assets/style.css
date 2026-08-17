@@ -77,10 +77,15 @@ a:hover { text-decoration: underline; }
 }
 
 .brand {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
   font-family: var(--mono);
   font-weight: 600;
   color: var(--text);
 }
+
+.brand img { display: block; }
 
 .topbar nav {
   display: flex;

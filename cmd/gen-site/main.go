@@ -40,6 +40,7 @@ var docPages = []struct {
 	{"roadmap", "Roadmap", "BACKLOG.md", "What is planned, with the id every commit and issue references."},
 	{"security", "Security", "SECURITY.md", "What the tool touches, what it never prints, and how to report a vulnerability."},
 	{"commercial", "Commercial use", "COMMERCIAL.md", "The licence is noncommercial; this is what a company needs instead."},
+	{"brand", "Brand", "docs/brand.md", ""},
 	{"changelog", "Changelog", "CHANGELOG.md", "Il changelog di questo progetto è in italiano."},
 }
 
@@ -53,6 +54,18 @@ var linkTargets = map[string]string{
 	"COMMERCIAL.md": "commercial.html",
 	"CHANGELOG.md":  "changelog.html",
 	"docs/rules.md": "rules.html",
+	"docs/brand.md": "brand.html",
+	// brand.md links the mark relative to docs/, which resolves on GitHub; the
+	// site serves the same files next to its pages.
+	"assets/logo.svg":    "logo.svg",
+	"assets/favicon.svg": "favicon.svg",
+}
+
+// brandFiles are served verbatim next to the pages. They live in the repository
+// because the README uses the same files: one mark, one copy of it.
+var brandFiles = map[string]string{
+	"logo.svg":    "docs/assets/logo.svg",
+	"favicon.svg": "docs/assets/favicon.svg",
 }
 
 func main() {
@@ -78,11 +91,30 @@ func main() {
 	}
 	s.Pages = pages
 
+	files, err := readBrandFiles()
+	if err != nil {
+		fmt.Fprintln(os.Stderr, "gen-site:", err)
+		os.Exit(1)
+	}
+	s.Files = files
+
 	if err := s.Build(*out); err != nil {
 		fmt.Fprintln(os.Stderr, "gen-site:", err)
 		os.Exit(1)
 	}
 	fmt.Printf("wrote %s (%d pages, %d rules)\n", *out, len(s.Pages), len(catalogue))
+}
+
+func readBrandFiles() (map[string][]byte, error) {
+	files := map[string][]byte{}
+	for name, path := range brandFiles {
+		data, err := os.ReadFile(path) //nolint:gosec // the file list is fixed above
+		if err != nil {
+			return nil, fmt.Errorf("reading %s: %w (run this from the repository root)", path, err)
+		}
+		files[name] = data
+	}
+	return files, nil
 }
 
 func buildPages(catalogue []rules.Rule) ([]site.Page, error) {
@@ -127,6 +159,12 @@ func buildPages(catalogue []rules.Rule) ([]site.Page, error) {
 func split(md string) (title, subtitle, body string) {
 	lines := strings.Split(md, "\n")
 	i := 0
+	for ; i < len(lines) && strings.TrimSpace(lines[i]) == ""; i++ {
+	}
+	// A document may open with an HTML block — the README leads with the logo. The
+	// layout shows the mark in its own header, so the block is skipped here.
+	for ; i < len(lines) && strings.HasPrefix(strings.TrimSpace(lines[i]), "<"); i++ {
+	}
 	for ; i < len(lines) && strings.TrimSpace(lines[i]) == ""; i++ {
 	}
 	if i < len(lines) && strings.HasPrefix(lines[i], "# ") {

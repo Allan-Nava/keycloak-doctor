@@ -5,13 +5,14 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>{{ .Page.NavTitle .Site.Name }}</title>
 <meta name="description" content="{{ if .Page.Subtitle }}{{ .Page.Subtitle }}{{ else }}{{ .Site.Tagline }}{{ end }}">
+<link rel="icon" href="favicon.svg" type="image/svg+xml">
 <link rel="stylesheet" href="style.css">
 </head>
 <body>
 <a class="skip" href="#content">Skip to content</a>
 
 <header class="topbar">
-  <a class="brand" href="index.html">{{ .Site.Name }}</a>
+  <a class="brand" href="index.html"><img src="logo.svg" width="26" height="26" alt=""> {{ .Site.Name }}</a>
   <nav aria-label="Documentation">
     {{ range .Nav }}<a href="{{ .Href }}"{{ if .Current }} class="current" aria-current="page"{{ end }}>{{ .Label }}</a>{{ end }}
   </nav>

@@ -12,6 +12,7 @@
 - **Exit code semantics**: 0 anche con finding WARN/BAD (l'audit che gira È un successo); ≠0 solo per errori sistemici (sorgente illeggibile, credenziali che non funzionano, regola sconosciuta, flag errato). `--exit-on` per il gating CI. NON cambiare questa semantica.
 - **Niente segreti** in fixture, test, doc o output. Le fixture usano `example-value-not-a-real-secret`, e c'è un test che verifica che nessun finding lo riporti.
 - **Todo → `BACKLOG.md`** (sorgente unica, id stabili `KD-n`). Non sparpagliare TODO nei commenti. Il file è **machine-read**: `go run ./cmd/backlog check` lo valida e il workflow `Backlog` lo specchia in milestone/issue GitHub a ogni push su `main`. Va rispettata la forma dei bullet (`- **KD-n** — descrizione` sotto `## Open`/`## Done`, `- **vX.Y.Z** [(due YYYY-MM-DD)] — scopo. Items: KD-a, KD-b.` sotto `## Milestones`), e si modifica il file, non le issue: titolo, body, label e milestone di una issue sincronizzata vengono riscritti al sync successivo, e spostare un item sotto `## Done` è ciò che chiude la sua issue.
+- **Documentare tutto, nello stesso commit**: ogni novità (regola, tool, workflow, asset) entra insieme alla sua documentazione — voce nel `CHANGELOG.md`, il documento in `docs/` o la sezione di README che la riguarda, i commenti che spiegano il *perché*, e i puntatori qui sotto. Mai "lo documento dopo": in questo repo la documentazione è una proiezione della cosa (`docs/rules.md` dal catalogo, il sito dai `.md`, le issue dal `BACKLOG.md`), e una doc scritta dopo descrive un tool che si è già mosso.
 - **Lingua = inglese**: codice, commenti, test e tutto l'output user-facing (messaggi dei finding, `usage`, help dei flag, errori, README, docs). **Eccezione: il `CHANGELOG.md` resta in italiano.**
 
 ## Comandi
@@ -58,4 +59,5 @@ go run ./cmd/backlog sync --repo Allan-Nava/keycloak-doctor --dry-run  # cosa ca
 - Backlog: `BACKLOG.md` · CI: `.github/workflows/ci.yml` · Release: `.github/workflows/release.yml` · Backlog sync: `.github/workflows/backlog.yml` · Pages: `.github/workflows/pages.yml`
 - Sito: <https://allan-nava.github.io/keycloak-doctor/>
 - Catalogo regole generato: `docs/rules.md` · Fixture: `testdata/`
+- Brand: `docs/brand.md` · Logo: `docs/assets/logo.svg` + `docs/assets/favicon.svg` — unica copia, li leggono sia il README sia `cmd/gen-site` (che li serve accanto alle pagine). Il segno è shield + keyhole + pulsazione: **niente checkmark**, il tool non dà verdetti.
 - Repo affini (stessa famiglia e stesse convenzioni): `~/projects/github.com/checkfleet`, `segcheck`, `nomad-lens`, `nats-lens`, `ansible-vars-lens`
