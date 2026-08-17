@@ -3,6 +3,14 @@
 Tutte le modifiche rilevanti a questo progetto sono documentate qui.
 Il formato segue [Keep a Changelog](https://keepachangelog.com/it/1.1.0/) e il progetto usa il [Semantic Versioning](https://semver.org/lang/it/).
 
+## [0.1.7] - 2026-08-17
+
+### Aggiunto
+
+- **Milestone `v0.4.0`** — «Desired-state sources»: auditare il realm che git dice che dovresti avere, *prima* dell'apply, invece di quello che il server è già diventato — custom resource `KeycloakRealmImport` (KD-8) e plan JSON di Terraform (KD-9), decodificati nella stessa forma parziale del modello che export e Admin API producono già.
+- **Milestone `v0.5.0`** — «Report ergonomics»: le parti del report su cui un operatore discute — soglie che sono davvero policy di sito spostate in un file di config (KD-14), `--explain RULE` con razionale e percorso esatto nella admin console (KD-15), e un diff tra due export per mostrare cosa ha fatto un cambio alla postura di un realm (KD-16).
+- Ogni item aperto del backlog ha ora una milestone, tranne **KD-18** (mirror dell'automazione del backlog sui repo affini), che è plumbing e non appartiene a una release del tool.
+
 ## [0.1.6] - 2026-08-17
 
 ### Aggiunto
@@ -122,6 +130,7 @@ Prima release: audit della configurazione di un realm Keycloak, da file di expor
 - **Documentazione generata**: `docs/rules.md` prodotto da `go run ./cmd/gen-docs` dal catalogo compilato, con gate in CI che la rigenerazione sia un no-op.
 - **Test**: suite completa su fixture locali (`testdata/insecure-realm.json`, `testdata/hardened-realm.json`) e server `httptest` per l'Admin API — nessun test tocca la rete o un Keycloak reale.
 
+[0.1.7]: https://github.com/Allan-Nava/keycloak-doctor/releases/tag/v0.1.7
 [0.1.6]: https://github.com/Allan-Nava/keycloak-doctor/releases/tag/v0.1.6
 [0.1.5]: https://github.com/Allan-Nava/keycloak-doctor/releases/tag/v0.1.5
 [0.1.4]: https://github.com/Allan-Nava/keycloak-doctor/releases/tag/v0.1.4

@@ -13,6 +13,8 @@ Edit this file, not the issues: a synced issue's title, body, labels and milesto
 
 - **v0.2.0** — Pull-request gating: make the audit usable as a required check on the repository that holds the realm definition, not only as a report an operator reads in a terminal. Items: KD-10, KD-11, KD-12, KD-13.
 - **v0.3.0** — Rule coverage: the seven checks a realm that looks hardened still hides — a service account holding admin roles, a default role composite nobody reads, a direct grant flow that bypasses the MFA the browser flow enforces, missing consent on a realm that brokers third-party identities, signing keys that never rotate, a WebAuthn policy that verifies nothing, and SAML assertions nobody signs. Items: KD-1, KD-2, KD-3, KD-4, KD-5, KD-6, KD-7.
+- **v0.4.0** — Desired-state sources: audit the realm git says you should have, before an apply, instead of the one the server already became — `KeycloakRealmImport` custom resources and a Terraform plan JSON, decoded into the same partial model the export and the Admin API already produce. Items: KD-8, KD-9.
+- **v0.5.0** — Report ergonomics: the parts of the report an operator argues with — thresholds that are genuinely site policy moved into a config file, `--explain RULE` for the rationale and the exact admin console path, and a diff between two exports to show what a change did to a realm's posture. Items: KD-14, KD-15, KD-16.
 
 ## Open
 
