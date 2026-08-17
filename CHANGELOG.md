@@ -3,6 +3,20 @@
 Tutte le modifiche rilevanti a questo progetto sono documentate qui.
 Il formato segue [Keep a Changelog](https://keepachangelog.com/it/1.1.0/) e il progetto usa il [Semantic Versioning](https://semver.org/lang/it/).
 
+## [0.1.1] - 2026-08-17
+
+Solo plumbing del progetto: il binario `keycloak-doctor` è identico alla 0.1.0.
+
+### Aggiunto
+
+- **Milestone `v0.2.0`** — «Pull-request gating»: rendere l'audit usabile come required check sul repo che contiene la definizione del realm, non solo come report da leggere in terminale. Raccoglie KD-10 (output SARIF), KD-11 (GitHub Action), KD-12 (baseline file), KD-13 (suppression con scadenza). Le milestone si dichiarano nella nuova sezione `## Milestones` di `BACKLOG.md`.
+- **`BACKLOG.md` diventa machine-read** (`internal/backlog`, `cmd/backlog`): parser degli item (`- **KD-n** — descrizione` sotto `## Open`/`## Done`, con l'heading `###` come area) e delle milestone (`- **vX.Y.Z** [(due YYYY-MM-DD)] — scopo. Items: KD-a, KD-b.`). Un bullet che non rispetta la forma è un errore, non un item saltato in silenzio: un mirror che perde un item è peggio di un mirror che si rompe.
+- **`backlog check`** — valida il file: id duplicati, item dichiarato sia open sia done, milestone che rivendica un id inesistente, item rivendicato da due milestone, milestone senza item. Problemi `error` (falliscono il gate) e `warn` (item senza area, milestone che rivendica un item già chiuso), ordinati worst-first, emessi come annotation `::error file=...,line=...` quando gira in Actions.
+- **`backlog sync`** — mirror idempotente su GitHub: crea le milestone dichiarate, apre una issue per ogni item aperto (titolo `KD-n: …`, body con la descrizione e il puntatore al file, label `backlog` + `area/<slug>`), riallinea titolo/body/milestone/label di una issue modificata a mano e chiude la issue di un item spostato sotto `## Done`. Non cancella niente e non tocca le issue senza item corrispondente: le segnala come `orphan-issue`. `--dry-run` esegue solo GET. Le label aggiunte a mano su una issue vengono conservate.
+- **`backlog export`** — il file parsato come JSON (item, milestone, assegnazioni), per chi vuole costruirci sopra.
+- **Workflow `Backlog`** (`.github/workflows/backlog.yml`) — `check` su ogni pull request che tocca il backlog (con annotation sul diff) e sync su ogni push su `main`; su pull request e su `workflow_dispatch` gira in dry-run, con il piano nel job summary. `concurrency` serializza i run: due sync in parallelo creerebbero ognuno le issue che l'altro non ha ancora visto.
+- **Test**: parser, validazione e riconciliazione completa contro un finto GitHub `httptest` (creazione, idempotenza al secondo giro, chiusura di un item finito, riparazione di una issue modificata a mano, dry-run che non emette una sola chiamata mutante, propagazione degli errori API senza mai stampare il token). Un test verifica che il `BACKLOG.md` committato parsi e sia consistente, come il gate su `docs/rules.md`.
+
 ## [0.1.0] - 2026-08-17
 
 Prima release: audit della configurazione di un realm Keycloak, da file di export o da server live, in un solo binario Go senza dipendenze.
@@ -27,4 +41,5 @@ Prima release: audit della configurazione di un realm Keycloak, da file di expor
 - **Documentazione generata**: `docs/rules.md` prodotto da `go run ./cmd/gen-docs` dal catalogo compilato, con gate in CI che la rigenerazione sia un no-op.
 - **Test**: suite completa su fixture locali (`testdata/insecure-realm.json`, `testdata/hardened-realm.json`) e server `httptest` per l'Admin API — nessun test tocca la rete o un Keycloak reale.
 
+[0.1.1]: https://github.com/Allan-Nava/keycloak-doctor/releases/tag/v0.1.1
 [0.1.0]: https://github.com/Allan-Nava/keycloak-doctor/releases/tag/v0.1.0

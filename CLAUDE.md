@@ -11,7 +11,7 @@
 - **Gli id delle regole sono API**: chi mette il tool in CI pinna un id in `--skip` o in una suppression. Non rinominarli senza una major e una nota nel changelog.
 - **Exit code semantics**: 0 anche con finding WARN/BAD (l'audit che gira È un successo); ≠0 solo per errori sistemici (sorgente illeggibile, credenziali che non funzionano, regola sconosciuta, flag errato). `--exit-on` per il gating CI. NON cambiare questa semantica.
 - **Niente segreti** in fixture, test, doc o output. Le fixture usano `example-value-not-a-real-secret`, e c'è un test che verifica che nessun finding lo riporti.
-- **Todo → `BACKLOG.md`** (sorgente unica, id stabili `KD-n`). Non sparpagliare TODO nei commenti.
+- **Todo → `BACKLOG.md`** (sorgente unica, id stabili `KD-n`). Non sparpagliare TODO nei commenti. Il file è **machine-read**: `go run ./cmd/backlog check` lo valida e il workflow `Backlog` lo specchia in milestone/issue GitHub a ogni push su `main`. Va rispettata la forma dei bullet (`- **KD-n** — descrizione` sotto `## Open`/`## Done`, `- **vX.Y.Z** [(due YYYY-MM-DD)] — scopo. Items: KD-a, KD-b.` sotto `## Milestones`), e si modifica il file, non le issue: titolo, body, label e milestone di una issue sincronizzata vengono riscritti al sync successivo, e spostare un item sotto `## Done` è ciò che chiude la sua issue.
 - **Lingua = inglese**: codice, commenti, test e tutto l'output user-facing (messaggi dei finding, `usage`, help dei flag, errori, README, docs). **Eccezione: il `CHANGELOG.md` resta in italiano.**
 
 ## Comandi
@@ -22,6 +22,8 @@ go test ./...                 # tutto locale: fixture in testdata/ e httptest pe
 go vet ./...
 golangci-lint run
 go run ./cmd/gen-docs         # rigenera docs/rules.md dal catalogo (gate in CI)
+go run ./cmd/backlog check    # valida BACKLOG.md (gate nel workflow Backlog)
+go run ./cmd/backlog sync --repo Allan-Nava/keycloak-doctor --dry-run  # cosa cambierebbe nel tracker
 
 ./keycloak-doctor audit testdata/insecure-realm.json --no-color
 ./keycloak-doctor audit testdata/hardened-realm.json --output markdown
@@ -36,6 +38,7 @@ go run ./cmd/gen-docs         # rigenera docs/rules.md dal catalogo (gate in CI)
 - `internal/output/` — renderer: `Text` (terminale), `Markdown` (report/PR comment), `JSON` (contratto di gating). I renderer vedono solo finding, mai il modello del realm.
 - `cmd/keycloak-doctor/` — CLI a sottocomandi (`audit`, `rules`, `version`), `version` iniettata con `-ldflags "-X main.version=..."`.
 - `cmd/gen-docs/` — genera `docs/rules.md` dal catalogo compilato.
+- `internal/backlog/` + `cmd/backlog/` — parser di `BACKLOG.md` e mirror idempotente su milestone/issue GitHub (stdlib, `httptest` nei test). Niente a che vedere con l'audit: è il plumbing del progetto, non entra nel binario `keycloak-doctor`.
 
 ## Trappole note / regole tecniche
 
@@ -50,6 +53,6 @@ go run ./cmd/gen-docs         # rigenera docs/rules.md dal catalogo (gate in CI)
 
 ## Puntatori
 
-- Backlog: `BACKLOG.md` · CI: `.github/workflows/ci.yml` · Release: `.github/workflows/release.yml`
+- Backlog: `BACKLOG.md` · CI: `.github/workflows/ci.yml` · Release: `.github/workflows/release.yml` · Backlog sync: `.github/workflows/backlog.yml`
 - Catalogo regole generato: `docs/rules.md` · Fixture: `testdata/`
 - Repo affini (stessa famiglia e stesse convenzioni): `~/projects/github.com/checkfleet`, `segcheck`, `nomad-lens`, `nats-lens`, `ansible-vars-lens`

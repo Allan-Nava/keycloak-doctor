@@ -1,0 +1,62 @@
+name: Backlog
+
+# BACKLOG.md is the single source of truth for the work on this project; the
+# milestones and issues of this repository are a projection of it. This workflow
+# is what keeps that true: it validates the file on every pull request, and
+# mirrors it into the tracker on every push to main.
+on:
+  push:
+    branches: ["main"]
+    paths:
+      - "BACKLOG.md"
+      - "internal/backlog/**"
+      - "cmd/backlog/**"
+      - ".github/workflows/backlog.yml"
+  pull_request:
+    paths:
+      - "BACKLOG.md"
+      - "internal/backlog/**"
+      - "cmd/backlog/**"
+      - ".github/workflows/backlog.yml"
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: "Report the actions without touching issues"
+        type: boolean
+        default: true
+
+permissions:
+  contents: read
+  issues: write
+
+concurrency:
+  # Two syncs racing on the same tracker would each create the issues the other
+  # has not listed yet, so runs are serialised.
+  group: backlog-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  backlog:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: "1.25"
+
+      # Duplicate ids, an unknown id in a milestone or an item claimed by two
+      # milestones fail here, annotated on the file in the diff, before anything
+      # is written to the tracker.
+      - name: Validate BACKLOG.md
+        run: go run ./cmd/backlog check
+
+      - name: Mirror into milestones and issues
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          # A pull request only reports what a sync would do: the head of a PR is
+          # not the state of the project yet, and a fork's token cannot write.
+          DRY_RUN: ${{ github.event_name == 'pull_request' || inputs.dry_run == true }}
+        run: |
+          args=(sync --repo "$GITHUB_REPOSITORY")
+          if [ "$DRY_RUN" = "true" ]; then args+=(--dry-run); fi
+          go run ./cmd/backlog "${args[@]}" | tee -a "$GITHUB_STEP_SUMMARY"

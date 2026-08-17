@@ -2,6 +2,17 @@
 
 Single source of truth for the work on keycloak-doctor. Items have a stable id (`KD-n`) so a commit, a branch or a finding can reference one. Do not scatter TODO comments in the code.
 
+This file is machine-read. `go run ./cmd/backlog check` validates it and the [Backlog workflow](.github/workflows/backlog.yml) mirrors it into GitHub milestones and issues on every push to `main`, so keep the shape of the bullets:
+
+- an item is `- **KD-n** — description`, under `## Open` (grouped by a `###` heading) or under `## Done`;
+- a milestone is `- **vX.Y.Z** [(due YYYY-MM-DD)] — what the release is about. Items: KD-a, KD-b.`, under `## Milestones`.
+
+Edit this file, not the issues: a synced issue's title, body, labels and milestone are overwritten on the next run, and moving an item to `## Done` is what closes its issue.
+
+## Milestones
+
+- **v0.2.0** — Pull-request gating: make the audit usable as a required check on the repository that holds the realm definition, not only as a report an operator reads in a terminal. Items: KD-10, KD-11, KD-12, KD-13.
+
 ## Open
 
 ### Rules
@@ -29,6 +40,10 @@ Single source of truth for the work on keycloak-doctor. Items have a stable id (
 - **KD-15** — `--explain RULE`: print the rationale, the threshold applied and the exact admin console path, for the rule an operator is arguing with.
 - **KD-16** — Diff mode: `audit --against previous.json` to show what changed in a realm's posture between two exports.
 - **KD-17** — Docs site (GitHub Pages) built from `docs/`, with the generated rule catalogue as its reference section.
+
+### Project plumbing
+
+- **KD-18** — Mirror the backlog automation into the sibling tools (`checkfleet`, `segcheck`, `nomad-lens`, `nats-lens`, `ansible-vars-lens`), which share these conventions and the same `BACKLOG.md` shape.
 
 ## Done
 
