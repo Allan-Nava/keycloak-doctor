@@ -1,0 +1,118 @@
+{
+  "realm": "demo",
+  "displayName": "Demo realm with every mistake in the book",
+  "enabled": true,
+  "sslRequired": "external",
+  "registrationAllowed": true,
+  "verifyEmail": false,
+  "loginWithEmailAllowed": true,
+  "duplicateEmailsAllowed": false,
+  "editUsernameAllowed": false,
+  "bruteForceProtected": false,
+  "accessTokenLifespan": 7200,
+  "ssoSessionIdleTimeout": 2592000,
+  "ssoSessionMaxLifespan": 2592000,
+  "offlineSessionMaxLifespanEnabled": false,
+  "revokeRefreshToken": false,
+  "refreshTokenMaxReuse": 0,
+  "passwordPolicy": "length(6) and hashAlgorithm(pbkdf2-sha256) and hashIterations(27500)",
+  "otpPolicyType": "totp",
+  "otpPolicyDigits": 6,
+  "eventsEnabled": false,
+  "adminEventsEnabled": false,
+  "browserFlow": "browser",
+  "directGrantFlow": "direct grant",
+  "authenticationFlows": [
+    {
+      "alias": "browser",
+      "topLevel": true,
+      "builtIn": true,
+      "authenticationExecutions": [
+        { "authenticator": "auth-cookie", "requirement": "ALTERNATIVE" },
+        { "authenticator": "auth-username-password-form", "requirement": "REQUIRED" }
+      ]
+    }
+  ],
+  "clients": [
+    {
+      "clientId": "legacy-frontend",
+      "enabled": true,
+      "protocol": "openid-connect",
+      "publicClient": true,
+      "standardFlowEnabled": true,
+      "implicitFlowEnabled": true,
+      "directAccessGrantsEnabled": true,
+      "fullScopeAllowed": true,
+      "redirectUris": ["https://*", "http://app.example.com/callback"],
+      "webOrigins": ["*"],
+      "attributes": {
+        "access.token.lifespan": "86400",
+        "post.logout.redirect.uris": "+"
+      },
+      "protocolMappers": [
+        {
+          "name": "legacy-api-key",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-usermodel-attribute-mapper",
+          "config": {
+            "user.attribute": "legacy_api_key",
+            "claim.name": "legacy_key",
+            "access.token.claim": true
+          }
+        }
+      ]
+    },
+    {
+      "clientId": "batch-worker",
+      "enabled": true,
+      "protocol": "openid-connect",
+      "publicClient": false,
+      "serviceAccountsEnabled": true,
+      "standardFlowEnabled": false,
+      "fullScopeAllowed": true,
+      "secret": "example-value-not-a-real-secret"
+    },
+    {
+      "clientId": "retired-app",
+      "enabled": false,
+      "publicClient": true,
+      "standardFlowEnabled": true,
+      "redirectUris": ["*"]
+    }
+  ],
+  "identityProviders": [
+    {
+      "alias": "legacy-oidc",
+      "providerId": "oidc",
+      "enabled": true,
+      "trustEmail": true,
+      "config": {
+        "clientId": "keycloak",
+        "clientSecret": "example-value-not-a-real-secret",
+        "authorizationUrl": "http://idp.internal/authorize",
+        "tokenUrl": "http://idp.internal/token"
+      }
+    }
+  ],
+  "components": {
+    "org.keycloak.keys.KeyProvider": [
+      {
+        "name": "legacy-rsa",
+        "providerId": "rsa-generated",
+        "config": { "keySize": ["1024"], "priority": ["100"] }
+      }
+    ],
+    "org.keycloak.storage.UserStorageProvider": [
+      {
+        "name": "corp-ldap",
+        "providerId": "ldap",
+        "config": {
+          "connectionUrl": ["ldap://ldap.internal:389"],
+          "bindDn": ["cn=keycloak,ou=services,dc=example,dc=com"],
+          "bindCredential": ["example-value-not-a-real-secret"],
+          "useTruststoreSpi": ["never"]
+        }
+      }
+    ]
+  }
+}

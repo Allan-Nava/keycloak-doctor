@@ -1,0 +1,72 @@
+{
+  "realm": "hardened",
+  "displayName": "Realm that passes every rule",
+  "enabled": true,
+  "sslRequired": "all",
+  "registrationAllowed": false,
+  "verifyEmail": true,
+  "loginWithEmailAllowed": true,
+  "duplicateEmailsAllowed": false,
+  "editUsernameAllowed": false,
+  "bruteForceProtected": true,
+  "permanentLockout": false,
+  "failureFactor": 5,
+  "accessTokenLifespan": 300,
+  "ssoSessionIdleTimeout": 1800,
+  "ssoSessionMaxLifespan": 36000,
+  "offlineSessionMaxLifespanEnabled": true,
+  "offlineSessionMaxLifespan": 5184000,
+  "revokeRefreshToken": true,
+  "refreshTokenMaxReuse": 0,
+  "passwordPolicy": "length(14) and notUsername(undefined) and hashAlgorithm(argon2)",
+  "otpPolicyType": "totp",
+  "otpPolicyDigits": 6,
+  "eventsEnabled": true,
+  "adminEventsEnabled": true,
+  "browserFlow": "browser",
+  "authenticationFlows": [
+    {
+      "alias": "browser",
+      "topLevel": true,
+      "builtIn": true,
+      "authenticationExecutions": [
+        { "authenticator": "auth-cookie", "requirement": "ALTERNATIVE" },
+        { "authenticatorFlow": true, "flowAlias": "forms", "requirement": "ALTERNATIVE" }
+      ]
+    },
+    {
+      "alias": "forms",
+      "topLevel": false,
+      "builtIn": true,
+      "authenticationExecutions": [
+        { "authenticator": "auth-username-password-form", "requirement": "REQUIRED" },
+        { "authenticator": "auth-otp-form", "requirement": "REQUIRED" }
+      ]
+    }
+  ],
+  "clients": [
+    {
+      "clientId": "web",
+      "enabled": true,
+      "protocol": "openid-connect",
+      "publicClient": true,
+      "standardFlowEnabled": true,
+      "implicitFlowEnabled": false,
+      "directAccessGrantsEnabled": false,
+      "fullScopeAllowed": false,
+      "redirectUris": ["https://app.example.com/callback"],
+      "webOrigins": ["https://app.example.com"],
+      "attributes": { "pkce.code.challenge.method": "S256" }
+    }
+  ],
+  "identityProviders": [],
+  "components": {
+    "org.keycloak.keys.KeyProvider": [
+      {
+        "name": "rsa-primary",
+        "providerId": "rsa-generated",
+        "config": { "keySize": ["4096"], "priority": ["100"] }
+      }
+    ]
+  }
+}

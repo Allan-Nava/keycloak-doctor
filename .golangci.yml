@@ -1,0 +1,25 @@
+# golangci-lint config, schema v2. The default linter set is a hard gate in CI.
+# Kept intentionally close to the defaults so it stays low-noise and stable.
+version: "2"
+
+linters:
+  enable:
+    - errcheck
+    - govet
+    - ineffassign
+    - staticcheck
+    - unused
+  # These presets are the same set of built-in exclusions v1 applied by default
+  # (deferred Close, naming nits, …).
+  exclusions:
+    generated: lax
+    presets:
+      - comments
+      - common-false-positives
+      - legacy
+      - std-error-handling
+
+issues:
+  # Don't cap the report — we keep the tree clean rather than hiding findings.
+  max-issues-per-linter: 0
+  max-same-issues: 0
