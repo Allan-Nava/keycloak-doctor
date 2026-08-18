@@ -51,16 +51,24 @@ type Finding struct {
 	Status      Status `json:"status"`
 	Message     string `json:"message"`
 	Remediation string `json:"remediation,omitempty"`
+	// New is set by [MarkNew] when a baseline was given and this finding is not in
+	// it. It is what --fail-on-new gates on, and it is absent from the JSON of a
+	// run without a baseline: "not new" and "never compared" are different claims.
+	New bool `json:"new,omitempty"`
 }
 
 // Result aggregates one audit run.
 type Result struct {
-	Findings []Finding     `json:"findings"`
-	Realms   []string      `json:"realms"`
-	Rules    int           `json:"rules"`
-	Source   string        `json:"source"`
-	Started  time.Time     `json:"started"`
-	Duration time.Duration `json:"duration_ns"`
+	Findings []Finding `json:"findings"`
+	Realms   []string  `json:"realms"`
+	Rules    int       `json:"rules"`
+	Source   string    `json:"source"`
+	// Suppressed counts the findings a suppression file removed from this run. It
+	// is rendered even when it is the only thing that changed: a suppression that
+	// nobody can see is indistinguishable from a rule that stopped working.
+	Suppressed int           `json:"suppressed,omitempty"`
+	Started    time.Time     `json:"started"`
+	Duration   time.Duration `json:"duration_ns"`
 }
 
 // SortFindings orders findings worst-first, then by rule, realm and target, with
@@ -110,6 +118,51 @@ func MinSeverity(findings []Finding, threshold Status) []Finding {
 	out := findings[:0:0]
 	for _, f := range findings {
 		if AtLeast(f.Status, threshold) {
+			out = append(out, f)
+		}
+	}
+	return out
+}
+
+// MarkNew flags every finding that the baseline does not already contain, and
+// returns how many it flagged.
+//
+// A finding is matched to a baseline entry by rule, realm and target — not by
+// message, which carries values that change without the posture changing (a
+// count, a lifespan). A finding whose status is worse than the baseline's counts
+// as new: a WARN that became a BAD is a regression, not a known issue.
+func MarkNew(findings, baseline []Finding) int {
+	known := make(map[[3]string]Status, len(baseline))
+	for _, b := range baseline {
+		key := identity(b)
+		// "Not present" and "present as OK" are different, and comparing severities
+		// alone cannot tell them apart: severity[OK] is 0, and so is the zero value.
+		if was, seen := known[key]; !seen || severity[b.Status] > severity[was] {
+			known[key] = b.Status
+		}
+	}
+	n := 0
+	for i := range findings {
+		was, seen := known[identity(findings[i])]
+		if !seen || severity[findings[i].Status] > severity[was] {
+			findings[i].New = true
+			n++
+		}
+	}
+	return n
+}
+
+// identity is what makes two findings "the same finding" across runs.
+func identity(f Finding) [3]string {
+	return [3]string{f.Rule, f.Realm, f.Target}
+}
+
+// OnlyNew keeps the findings [MarkNew] flagged. It is what narrows a gate to a
+// regression instead of the whole accepted backlog of a realm.
+func OnlyNew(findings []Finding) []Finding {
+	out := findings[:0:0]
+	for _, f := range findings {
+		if f.New {
 			out = append(out, f)
 		}
 	}

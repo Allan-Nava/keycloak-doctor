@@ -14,6 +14,7 @@ import (
 	"github.com/Allan-Nava/keycloak-doctor/internal/keycloak"
 	"github.com/Allan-Nava/keycloak-doctor/internal/output"
 	"github.com/Allan-Nava/keycloak-doctor/internal/rules"
+	"github.com/Allan-Nava/keycloak-doctor/internal/suppress"
 )
 
 func runAudit(args []string) error {
@@ -46,6 +47,9 @@ func runAudit(args []string) error {
 		noColor     = fs.Bool("no-color", false, "disable ANSI colours in the text output")
 		exitOn      = fs.String("exit-on", "", "exit non-zero when a finding reaches this status: warn|bad|error")
 		exitCode    = fs.Int("exit-code", 2, "exit code used by --exit-on")
+		baseline    = fs.String("baseline", "", "a previous --output json run: findings absent from it are marked NEW")
+		failOnNew   = fs.Bool("fail-on-new", false, "narrow --exit-on to findings that are not in the baseline")
+		suppressed  = fs.String("suppress", "", "suppression file: accepted findings, each with an expiry date and a reason")
 	)
 	if err := fs.Parse(args); err != nil {
 		return err
@@ -72,6 +76,17 @@ func runAudit(args []string) error {
 	selected, err := rules.Select(splitList(*only), splitList(*skip))
 	if err != nil {
 		return err
+	}
+	// --fail-on-new narrows an existing gate; it cannot invent one, and it has
+	// nothing to narrow against without a baseline. Both are usage errors rather
+	// than defaults, because guessing here means guessing whether a pipeline fails.
+	if *failOnNew {
+		if strings.TrimSpace(*baseline) == "" {
+			return errors.New("--fail-on-new needs --baseline: without one, every finding is new")
+		}
+		if gate == "" {
+			return errors.New("--fail-on-new needs --exit-on: it narrows a gate, it does not create one")
+		}
 	}
 	names := splitList(*realmNames)
 
@@ -109,14 +124,39 @@ func runAudit(args []string) error {
 		return errors.New("no source: pass a realm export path, or --url for a live server")
 	}
 
-	findings := engine.MinSeverity(rules.Audit(realms, selected), threshold)
+	findings := rules.Audit(realms, selected)
+
+	// Order: suppress, then compare against the baseline, then apply the severity
+	// filter. A suppressed finding must not reach the baseline comparison (it would
+	// show up as "fixed" and then as "new" again the day the suppression expires),
+	// and --min-severity is last so it filters exactly what is about to be printed.
+	suppressedCount := 0
+	if path := strings.TrimSpace(*suppressed); path != "" {
+		outcome, err := applySuppressions(path, findings)
+		if err != nil {
+			return err
+		}
+		findings, suppressedCount = outcome.Findings, outcome.Suppressed
+	}
+	if path := strings.TrimSpace(*baseline); path != "" {
+		known, err := readBaseline(path)
+		if err != nil {
+			return err
+		}
+		// The count is not needed here: every format derives it from the findings it
+		// was handed, so text can mark each line and markdown can total them.
+		engine.MarkNew(findings, known)
+	}
+	findings = engine.MinSeverity(engine.SortFindings(findings), threshold)
+
 	res := engine.Result{
-		Findings: findings,
-		Realms:   keycloak.RealmNames(realms),
-		Rules:    len(selected),
-		Source:   source,
-		Started:  started,
-		Duration: time.Since(started),
+		Findings:   findings,
+		Realms:     keycloak.RealmNames(realms),
+		Rules:      len(selected),
+		Source:     source,
+		Suppressed: suppressedCount,
+		Started:    started,
+		Duration:   time.Since(started),
 	}
 
 	w := io.Writer(os.Stdout)
@@ -130,15 +170,65 @@ func runAudit(args []string) error {
 		w = f
 		color = false // a file is read later, by something that does not want escapes
 	}
-	if err := output.Render(w, output.Format(*format), res, output.Options{Color: color, Version: version}); err != nil {
+	opts := output.Options{Color: color, Version: version, Rules: ruleInfo(selected)}
+	if err := output.Render(w, output.Format(*format), res, opts); err != nil {
 		return err
 	}
 	// The gate is evaluated on the reported findings, so --min-severity and
 	// --exit-on stay consistent with each other and with what the operator saw.
-	if gate != "" && engine.AtLeast(engine.Worst(findings), gate) {
+	// With --fail-on-new it sees only the findings the baseline did not have: the
+	// accepted state of a realm stops failing the build, a regression still does.
+	gated := findings
+	if *failOnNew {
+		gated = engine.OnlyNew(gated)
+	}
+	if gate != "" && engine.AtLeast(engine.Worst(gated), gate) {
 		return &exitError{code: *exitCode}
 	}
 	return nil
+}
+
+// applySuppressions reads the suppression file and applies it to the findings.
+func applySuppressions(path string, findings []engine.Finding) (suppress.Outcome, error) {
+	f, err := os.Open(path) //nolint:gosec // the operator names their own suppression file
+	if err != nil {
+		return suppress.Outcome{}, err
+	}
+	defer func() { _ = f.Close() }()
+	set, err := suppress.Load(f)
+	if err != nil {
+		return suppress.Outcome{}, fmt.Errorf("%s: %w", path, err)
+	}
+	return set.Apply(findings, time.Now()), nil
+}
+
+// readBaseline reads the findings of a previous run.
+func readBaseline(path string) ([]engine.Finding, error) {
+	f, err := os.Open(path) //nolint:gosec // the operator names their own baseline
+	if err != nil {
+		return nil, err
+	}
+	defer func() { _ = f.Close() }()
+	known, err := output.ReadBaseline(f)
+	if err != nil {
+		return nil, fmt.Errorf("%s: %w", path, err)
+	}
+	return known, nil
+}
+
+// ruleInfo hands the renderers what a rule *is*, for the formats that describe the
+// tool as well as its findings. The output package does not import the catalogue.
+func ruleInfo(selected []rules.Rule) []output.RuleInfo {
+	infos := make([]output.RuleInfo, 0, len(selected)+len(suppress.Rules()))
+	for _, r := range selected {
+		infos = append(infos, output.RuleInfo{ID: r.ID, Title: r.Title, Rationale: r.Rationale})
+	}
+	// The suppression findings can appear in a report, so they belong in the tool
+	// descriptor next to the rules that produced the rest of it.
+	for _, r := range suppress.Rules() {
+		infos = append(infos, output.RuleInfo{ID: r.ID, Title: r.Title, Rationale: r.Rationale})
+	}
+	return infos
 }
 
 // liveCreds carries the Admin API credential flags. Secrets are named, not

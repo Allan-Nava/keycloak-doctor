@@ -3,6 +3,29 @@
 Tutte le modifiche rilevanti a questo progetto sono documentate qui.
 Il formato segue [Keep a Changelog](https://keepachangelog.com/it/1.1.0/) e il progetto usa il [Semantic Versioning](https://semver.org/lang/it/).
 
+## [0.2.0] - 2026-08-17
+
+Milestone **v0.2.0 «Pull-request gating»** completata: l'audit diventa un required check sul repo che contiene la definizione del realm, non solo un report da leggere in terminale. Chiude KD-10, KD-11, KD-12, KD-13.
+
+### Aggiunto
+
+- **Output SARIF 2.1.0** (`--output sarif`, KD-10): i finding diventano alert di GitHub code scanning accanto al file del realm. Tre scelte di mappatura, tutte deliberate: `BAD` → `error` e `WARN` → `warning` (il livello è **per finding**, non per regola — la stessa regola è BAD su un client pubblico e WARN su uno confidenziale); un finding **`ERROR` è un result vero a livello `note`**, non una regola saltata, perché un punto cieco deve stare nella stessa lista dei finding; una `OK` è un result `kind: pass` a livello `none`, così il file resta una proiezione fedele del run senza generare alert. Il `partialFingerprints` è calcolato su rule+realm+target e **mai sul messaggio**: è ciò che tiene aperto lo stesso alert tra run invece di chiuderlo e riaprirlo quando cambia un conteggio. Se la sorgente è un file del repo il result è ancorato ad esso; se è un server live non c'è nessun file e resta la sola posizione logica `realm/target`, invece di inventarne una.
+- **GitHub Action** (`action.yml`, KD-11): scarica il binario di release per il runner e **lo verifica con il `checksums.txt`** della release — non compila dal sorgente e non tira l'immagine, così lo step costa circa un secondo ed esegue lo stesso artefatto che scaricherebbe una persona. 13 input (`path`, `output`, `out-file`, `exit-on`, `min-severity`, `only`, `skip`, `realm`, `baseline`, `fail-on-new`, `suppress`, `summary`, `version`), output `report`/`worst`/`suppressed`/`exit-code`, report Markdown nel job summary. `version: path` usa un `keycloak-doctor` già sul PATH: è l'escape hatch per chi se lo installa da sé, ed è come la CI testa l'action **sul working tree** invece che sull'ultima release (job `action` in `ci.yml`, che verifica anche che l'action gati sulla fixture rotta e passi su quella hardened).
+- **Baseline** (`--baseline audit.json`, `--fail-on-new`, KD-12): un realm che ha accumulato finding non si sistema in una pull request, e un check che falisce sempre è un check che si impara a ignorare. `--baseline` rilegge il JSON di un run precedente e marca ciò che non c'era (`NEW ·` nel testo, conteggio in Markdown, `"new": true` in JSON e in SARIF); `--fail-on-new` restringe `--exit-on` a quei finding. Il match è su **rule+realm+target**, non sul messaggio (che porta conteggi e lifespan che si muovono senza che si muova la postura), e uno stato **peggiorato** conta come nuovo: un WARN diventato BAD è una regressione, non un problema noto.
+- **File di suppression** (`--suppress`, KD-13): i finding che si è deciso di accettare, ognuno con `until` (data) e `reason` **obbligatori**. Due proprietà lo rendono usabile in pipeline: una suppression non è mai **silenziosa** (il run stampa `· 2 suppressed`, ed è nel JSON e nel SARIF) e non è mai **permanente** (dopo la data smette di sopprimere e il finding torna). Il file riporta anche se stesso: `suppression/expired` dice quale entry è scaduta e con che motivazione era stata scritta, `suppression/unmatched` quale non ha corrisposto a niente — o il finding è risolto e l'entry è morta, o l'id/realm/target è un typo e qualcuno crede di aver soppresso qualcosa che invece viene ancora riportato. Una chiave sconosciuta nel file è un errore, non un no-op: un `targt` scritto male lascerebbe un'entry che sopprime più del previsto. Le due id **non sono regole del catalogo** (non sono funzioni del realm): `--only`/`--skip` non le selezionano.
+- **`docs/ci.md`** (pagina *In CI* del sito): exit code, l'action con la tabella degli input, la mappatura SARIF, come il baseline confronta un finding e il formato del file di suppression. Sezione «In CI» del README riscritta di conseguenza.
+
+### Corretto
+
+- **`MarkNew` non registrava le `OK` del baseline**: la mappa teneva «il peggiore per chiave» con un confronto di severità, e `severity[OK]` è 0 come lo zero value — così ogni finding OK risultava nuovo. «Non presente» e «presente e passata» sono affermazioni diverse. Trovato eseguendo il tool sul suo stesso baseline, non rileggendo il codice.
+- **Il conteggio dei soppressi non arrivava al JSON**: era nel testo e nel Markdown ma non in `jsonResult`, quindi una pipeline che gata su `worst` non poteva vedere che dei finding erano stati rimossi dal run. Preso da un test.
+- **Il sync staccava le issue da una milestone rilasciata**: `BACKLOG.md` elenca ciò che è *pianificato*, quindi quando una milestone esce dal file (perché è stata rilasciata) le sue issue non avevano più una milestone dichiarata e il sync la rimuoveva — cancellando il registro di cosa era stato rilasciato in quella release. Ora il sync gestisce l'appartenenza **solo delle milestone che il file dichiara**: una milestone che il file non menziona più è una release, e le sue issue chiuse ne sono la prova. Preso in faccia applicando questa stessa release (le 4 issue sono state riattaccate a mano), con due test nuovi: uno sulla milestone rilasciata, uno sullo spostamento di un item tra due milestone dichiarate, che deve continuare a funzionare.
+- **Gli output dell'action dicevano `worst=OK` quando l'audit non era rileggibile**: ora dicono `UNKNOWN`. Un job che non è riuscito a guardare non è un job che non ha trovato niente — è la stessa regola di `ERROR` nei finding, applicata agli output di uno step.
+
+### Nota
+
+Ordine delle operazioni dentro un run, ora che sono tre livelli: audit → suppress → confronto col baseline → `--min-severity` → render → gate. Un finding soppresso non arriva al confronto col baseline (comparirebbe come risolto e poi di nuovo come nuovo il giorno della scadenza) e non può soddisfare un gate, perché non è più nel run.
+
 ## [0.1.7] - 2026-08-17
 
 ### Aggiunto
@@ -130,6 +153,7 @@ Prima release: audit della configurazione di un realm Keycloak, da file di expor
 - **Documentazione generata**: `docs/rules.md` prodotto da `go run ./cmd/gen-docs` dal catalogo compilato, con gate in CI che la rigenerazione sia un no-op.
 - **Test**: suite completa su fixture locali (`testdata/insecure-realm.json`, `testdata/hardened-realm.json`) e server `httptest` per l'Admin API — nessun test tocca la rete o un Keycloak reale.
 
+[0.2.0]: https://github.com/Allan-Nava/keycloak-doctor/releases/tag/v0.2.0
 [0.1.7]: https://github.com/Allan-Nava/keycloak-doctor/releases/tag/v0.1.7
 [0.1.6]: https://github.com/Allan-Nava/keycloak-doctor/releases/tag/v0.1.6
 [0.1.5]: https://github.com/Allan-Nava/keycloak-doctor/releases/tag/v0.1.5

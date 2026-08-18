@@ -37,6 +37,7 @@ var docPages = []struct {
 	slug, nav, file, subtitle string
 }{
 	{"index", "Overview", "README.md", ""},
+	{"ci", "In CI", "docs/ci.md", ""},
 	{"roadmap", "Roadmap", "BACKLOG.md", "What is planned, with the id every commit and issue references."},
 	{"security", "Security", "SECURITY.md", "What the tool touches, what it never prints, and how to report a vulnerability."},
 	{"commercial", "Commercial use", "COMMERCIAL.md", "The licence is noncommercial; this is what a company needs instead."},
@@ -54,6 +55,8 @@ var linkTargets = map[string]string{
 	"COMMERCIAL.md": "commercial.html",
 	"CHANGELOG.md":  "changelog.html",
 	"docs/rules.md": "rules.html",
+	"docs/ci.md":    "ci.html",
+	"rules.md":      "rules.html", // docs/ci.md links its sibling relatively
 	"docs/brand.md": "brand.html",
 	// brand.md links the mark relative to docs/, which resolves on GitHub; the
 	// site serves the same files next to its pages.

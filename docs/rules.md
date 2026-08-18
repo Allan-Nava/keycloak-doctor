@@ -6,6 +6,10 @@ keycloak-doctor ships 30 rules in 7 categories. Every rule is evaluated against 
 realm read either from an export file or from the Admin REST API; the id is stable
 and is what `--only`, `--skip` and any suppression in your pipeline should pin.
 
+A run can also report `suppression/expired` and `suppression/unmatched`. Those are not
+realm rules — they are about your own suppression file — so they are documented in
+[ci.md](ci.md) rather than listed here, and `--only`/`--skip` do not select them.
+
 | Rule | Checks that |
 |---|---|
 | [`client/direct-grant`](#clientdirect-grant) | The resource owner password grant is off |

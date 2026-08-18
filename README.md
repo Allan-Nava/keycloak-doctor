@@ -120,15 +120,34 @@ keycloak-doctor audit --url https://sso.example.com --realm prod \
 
 ### In CI
 
-```bash
-keycloak-doctor audit prod-realm.json --output json --exit-on bad --out-file audit.json
+```yaml
+- uses: Allan-Nava/keycloak-doctor@v0.2.0
+  with:
+    path: realms/prod-realm.json
+    exit-on: bad
+- uses: github/codeql-action/upload-sarif@v3
+  if: always()
+  with:
+    sarif_file: keycloak-doctor.sarif
 ```
+
+The findings become **code scanning alerts** on the repository that holds the realm definition, next to the file, instead of a report somebody has to dig out of a job log. The action downloads the release binary and verifies it against the release checksums, so the step costs about a second.
 
 Exit codes follow the same rule as the rest of the family: **0 even when there are WARN/BAD findings** — an audit that ran is a success, and the report is the deliverable. Non-zero only for systemic errors (unreadable source, credentials that do not work, unknown rule, bad flag). Pass `--exit-on warn|bad|error` when you want a gate, with `--exit-code N` to pick the code.
 
-Useful flags: `--output text|markdown|json`, `--min-severity warn`, `--only client,keys`, `--skip realm/audit-events`, `--out-file PATH`, `--no-color`.
+A realm that has accumulated findings cannot be fixed in one pull request, so gate on **what changed** instead, and accept the rest explicitly, with an expiry date and a reason:
 
-The `markdown` output is shaped for a report or a PR comment: summary, a *Needs attention* list, then the full table. The `json` output is the gating contract — `worst`, `summary` and one object per finding with its stable rule id.
+```bash
+keycloak-doctor audit prod-realm.json --output json --out-file audit-baseline.json   # once
+keycloak-doctor audit prod-realm.json --baseline audit-baseline.json --exit-on bad --fail-on-new
+keycloak-doctor audit prod-realm.json --suppress suppressions.json --exit-on bad
+```
+
+A suppression is never silent (the run reports how many findings it removed) and never permanent (past its date it stops suppressing, and `suppression/expired` says which entry lapsed). The whole story — the action's inputs and outputs, the SARIF level mapping, how a baseline matches a finding, the suppression file format — is in [docs/ci.md](docs/ci.md).
+
+Useful flags: `--output text|markdown|json|sarif`, `--min-severity warn`, `--only client,keys`, `--skip realm/audit-events`, `--baseline audit.json`, `--fail-on-new`, `--suppress suppressions.json`, `--out-file PATH`, `--no-color`.
+
+The `markdown` output is shaped for a report or a PR comment: summary, a *Needs attention* list, then the full table. The `json` output is the gating contract — `worst`, `summary` and one object per finding with its stable rule id — and it is what `--baseline` reads back.
 
 ## Design notes
 

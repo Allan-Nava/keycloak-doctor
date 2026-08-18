@@ -1,0 +1,213 @@
+name: keycloak-doctor
+description: Audit a Keycloak realm export for the mistakes that actually get exploited, and gate the pull request on what changed.
+author: Allan Nava
+branding:
+  icon: shield
+  color: blue
+
+# The action downloads the release binary for the runner and verifies it against
+# the release checksums. It deliberately does not build from source and does not
+# pull the image: a step that gates a pull request should cost a second, and the
+# artifact it runs should be the same one a human downloads.
+
+inputs:
+  path:
+    description: Realm export file, or a directory of exports, to audit.
+    required: false
+    default: "."
+  output:
+    description: Report format — text, markdown, json or sarif.
+    required: false
+    default: sarif
+  out-file:
+    description: Where to write the report. Empty writes it to the step log.
+    required: false
+    default: keycloak-doctor.sarif
+  exit-on:
+    description: Fail the step when a finding reaches this status (warn, bad or error). Empty never fails the step.
+    required: false
+    default: bad
+  min-severity:
+    description: Report only findings at or above this status.
+    required: false
+    default: ""
+  only:
+    description: Run only these rules or categories (comma-separated).
+    required: false
+    default: ""
+  skip:
+    description: Skip these rules or categories (comma-separated).
+    required: false
+    default: ""
+  realm:
+    description: Audit only these realms (comma-separated).
+    required: false
+    default: ""
+  baseline:
+    description: A previous JSON report; findings absent from it are marked new.
+    required: false
+    default: ""
+  fail-on-new:
+    description: Narrow exit-on to the findings the baseline does not have. Needs baseline and exit-on.
+    required: false
+    default: "false"
+  suppress:
+    description: Suppression file — accepted findings, each with an expiry date and a reason.
+    required: false
+    default: ""
+  summary:
+    description: Write the Markdown report to the job summary.
+    required: false
+    default: "true"
+  version:
+    description: Release to run — a tag such as v0.2.0, "latest", or "path" to use a keycloak-doctor already on PATH.
+    required: false
+    default: latest
+
+outputs:
+  report:
+    description: Path of the written report, empty when it went to the log.
+    value: ${{ steps.audit.outputs.report }}
+  worst:
+    description: Worst status in the run — OK, WARN, BAD or ERROR.
+    value: ${{ steps.audit.outputs.worst }}
+  suppressed:
+    description: How many findings the suppression file removed.
+    value: ${{ steps.audit.outputs.suppressed }}
+  exit-code:
+    description: Exit code of the audit, 0 unless exit-on gated.
+    value: ${{ steps.audit.outputs.exit-code }}
+
+runs:
+  using: composite
+  steps:
+    - name: Install keycloak-doctor
+      shell: bash
+      env:
+        VERSION: ${{ inputs.version }}
+        GH_TOKEN: ${{ github.token }}
+      run: |
+        set -euo pipefail
+        repo=Allan-Nava/keycloak-doctor
+
+        # "path" is for a runner that already has the binary — a job that just built
+        # it, or a self-hosted image that ships it. It is also how this repository
+        # tests its own action against the working tree instead of the last release.
+        if [ "$VERSION" = "path" ]; then
+          if ! command -v keycloak-doctor > /dev/null; then
+            echo "::error::version: path was requested but no keycloak-doctor is on PATH"
+            exit 1
+          fi
+          echo "using $(command -v keycloak-doctor): $(keycloak-doctor version)"
+          exit 0
+        fi
+
+        tag="$VERSION"
+        if [ "$tag" = "latest" ] || [ -z "$tag" ]; then
+          tag=$(curl -fsSL -H "Authorization: Bearer $GH_TOKEN" \
+            "https://api.github.com/repos/$repo/releases/latest" |
+            sed -n 's/.*"tag_name": *"\([^"]*\)".*/\1/p' | head -1)
+        fi
+        if [ -z "$tag" ]; then
+          echo "::error::could not resolve which keycloak-doctor release to run (version: $VERSION)"
+          exit 1
+        fi
+
+        case "$(uname -s)" in
+          Linux)  os=linux ;;
+          Darwin) os=darwin ;;
+          *) echo "::error::this action supports Linux and macOS runners; $(uname -s) is not one of them"; exit 1 ;;
+        esac
+        case "$(uname -m)" in
+          x86_64|amd64) arch=amd64 ;;
+          arm64|aarch64) arch=arm64 ;;
+          *) echo "::error::unsupported architecture $(uname -m)"; exit 1 ;;
+        esac
+
+        version="${tag#v}"
+        name="keycloak-doctor_${version}_${os}_${arch}"
+        dir=$(mktemp -d)
+        cd "$dir"
+        base="https://github.com/$repo/releases/download/$tag"
+        curl -fsSL -o "$name.tar.gz" "$base/$name.tar.gz"
+        # The checksum is the point of downloading a release rather than a branch.
+        curl -fsSL -o checksums.txt "$base/checksums.txt"
+        if command -v sha256sum > /dev/null; then
+          grep " ./$name.tar.gz\$" checksums.txt | sed 's| \./| |' | sha256sum -c -
+        else
+          want=$(grep " ./$name.tar.gz\$" checksums.txt | awk '{print $1}')
+          got=$(shasum -a 256 "$name.tar.gz" | awk '{print $1}')
+          [ "$want" = "$got" ] || { echo "::error::checksum mismatch for $name.tar.gz"; exit 1; }
+        fi
+        tar -xzf "$name.tar.gz"
+        install -m 0755 "$name/keycloak-doctor" "$dir/keycloak-doctor"
+        echo "$dir" >> "$GITHUB_PATH"
+        echo "keycloak-doctor $tag installed for $os/$arch"
+
+    - name: Audit
+      id: audit
+      shell: bash
+      env:
+        IN_PATH: ${{ inputs.path }}
+        IN_OUTPUT: ${{ inputs.output }}
+        IN_OUT_FILE: ${{ inputs.out-file }}
+        IN_EXIT_ON: ${{ inputs.exit-on }}
+        IN_MIN_SEVERITY: ${{ inputs.min-severity }}
+        IN_ONLY: ${{ inputs.only }}
+        IN_SKIP: ${{ inputs.skip }}
+        IN_REALM: ${{ inputs.realm }}
+        IN_BASELINE: ${{ inputs.baseline }}
+        IN_FAIL_ON_NEW: ${{ inputs.fail-on-new }}
+        IN_SUPPRESS: ${{ inputs.suppress }}
+        IN_SUMMARY: ${{ inputs.summary }}
+      run: |
+        set -uo pipefail
+
+        # Every value comes in through the environment, never interpolated into the
+        # script: an input is data, and a realm name is not a command.
+        common=(--no-color)
+        [ -n "$IN_REALM" ]        && common+=(--realm "$IN_REALM")
+        [ -n "$IN_ONLY" ]         && common+=(--only "$IN_ONLY")
+        [ -n "$IN_SKIP" ]         && common+=(--skip "$IN_SKIP")
+        [ -n "$IN_SUPPRESS" ]     && common+=(--suppress "$IN_SUPPRESS")
+        [ -n "$IN_BASELINE" ]     && common+=(--baseline "$IN_BASELINE")
+
+        report=(audit "$IN_PATH" "${common[@]}" --output "$IN_OUTPUT")
+        [ -n "$IN_MIN_SEVERITY" ] && report+=(--min-severity "$IN_MIN_SEVERITY")
+        [ -n "$IN_OUT_FILE" ]     && report+=(--out-file "$IN_OUT_FILE")
+        [ -n "$IN_EXIT_ON" ]      && report+=(--exit-on "$IN_EXIT_ON")
+        [ "$IN_FAIL_ON_NEW" = "true" ] && report+=(--fail-on-new)
+
+        keycloak-doctor "${report[@]}"
+        code=$?
+
+        # A second pass in JSON is how the step reports what happened: it is the same
+        # pure audit over the same file, it costs milliseconds, and it must never gate
+        # — so it carries no --exit-on.
+        json=$(mktemp)
+        if keycloak-doctor audit "$IN_PATH" "${common[@]}" --output json --out-file "$json"; then
+          worst=$(sed -n 's/.*"worst": *"\([^"]*\)".*/\1/p' "$json" | head -1)
+          suppressed=$(sed -n 's/.*"suppressed": *\([0-9]*\).*/\1/p' "$json" | head -1)
+        else
+          # The audit could not be re-run, so this step does not know the worst status.
+          # "UNKNOWN" and "OK" must never be the same output: a step that failed to
+          # look is not a step that found nothing.
+          worst=UNKNOWN
+          suppressed=""
+        fi
+
+        {
+          echo "report=$IN_OUT_FILE"
+          echo "worst=${worst:-UNKNOWN}"
+          echo "suppressed=${suppressed:-0}"
+          echo "exit-code=$code"
+        } >> "$GITHUB_OUTPUT"
+
+        if [ "$IN_SUMMARY" = "true" ]; then
+          keycloak-doctor audit "$IN_PATH" "${common[@]}" --output markdown >> "$GITHUB_STEP_SUMMARY" || true
+        fi
+
+        if [ "$code" -ne 0 ]; then
+          echo "::error::keycloak-doctor gated on --exit-on $IN_EXIT_ON (worst: ${worst:-unknown})"
+        fi
+        exit "$code"

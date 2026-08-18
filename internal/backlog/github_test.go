@@ -393,6 +393,60 @@ func TestDryRunReportsIssuesMovedIntoAMilestoneThatDoesNotExistYet(t *testing.T)
 	}
 }
 
+// A released milestone leaves BACKLOG.md — the file is what is still planned —
+// and the issues that closed under it must keep it. Stripping it would erase the
+// record of what shipped in that release, which is exactly what happened once.
+func TestSyncKeepsAMilestoneTheFileNoLongerDeclares(t *testing.T) {
+	f, gh := newFake(t)
+	doc := parseSample(t)
+	sync(t, gh, doc)
+
+	before := f.byTitlePrefix("KD-10").Milestone
+	if before == nil {
+		t.Fatal("KD-10 did not get its milestone in the first place")
+	}
+
+	// v0.2.0 shipped: its bullet goes away, and its items move to Done.
+	shipped := strings.Replace(sample, "- **v0.2.0** (due 2026-09-30) — Pull-request gating: the audit as a required check.\n  Items: KD-10, KD-11.\n", "", 1)
+	trimmed, err := Parse([]byte(shipped))
+	if err != nil {
+		t.Fatalf("Parse: %v", err)
+	}
+	if it, _ := itemByID(trimmed, "KD-10"); it.Milestone != "" {
+		t.Fatalf("the fixture still claims KD-10 in a milestone: %q", it.Milestone)
+	}
+
+	for _, a := range sync(t, gh, trimmed) {
+		if strings.Contains(a.Detail, "milestone cleared") {
+			t.Errorf("the sync stripped a shipped milestone: %s", a)
+		}
+	}
+	if after := f.byTitlePrefix("KD-10").Milestone; after == nil || after.Number != before.Number {
+		t.Errorf("KD-10 lost its milestone: %+v, want %+v", after, before)
+	}
+}
+
+// Moving an item between two milestones the file declares still works.
+func TestSyncMovesAnItemBetweenDeclaredMilestones(t *testing.T) {
+	f, gh := newFake(t)
+	sync(t, gh, parseSample(t))
+
+	moved := strings.Replace(sample, "- **v0.3.0** — Desired state sources. Items: KD-8.", "- **v0.3.0** — Desired state sources. Items: KD-8, KD-10.", 1)
+	moved = strings.Replace(moved, "Items: KD-10, KD-11.", "Items: KD-11.", 1)
+	doc, err := Parse([]byte(moved))
+	if err != nil {
+		t.Fatalf("Parse: %v", err)
+	}
+
+	if got := kinds(sync(t, gh, doc)); got != "update-issue:KD-10" {
+		t.Fatalf("actions = %q, want the one move", got)
+	}
+	kd10 := f.byTitlePrefix("KD-10")
+	if kd10.Milestone == nil || kd10.Milestone.Number != 2 {
+		t.Errorf("KD-10 is in %+v, want the second milestone", kd10.Milestone)
+	}
+}
+
 func TestSyncMilestoneDescriptionUpdate(t *testing.T) {
 	f, gh := newFake(t)
 	sync(t, gh, parseSample(t))

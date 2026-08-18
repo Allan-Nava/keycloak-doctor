@@ -36,6 +36,9 @@ func main() {
 	fmt.Fprintf(b, "keycloak-doctor ships %d rules in %d categories. Every rule is evaluated against a\n", len(all), len(categories))
 	b.WriteString("realm read either from an export file or from the Admin REST API; the id is stable\n")
 	b.WriteString("and is what `--only`, `--skip` and any suppression in your pipeline should pin.\n\n")
+	b.WriteString("A run can also report `suppression/expired` and `suppression/unmatched`. Those are not\n")
+	b.WriteString("realm rules — they are about your own suppression file — so they are documented in\n")
+	b.WriteString("[ci.md](ci.md) rather than listed here, and `--only`/`--skip` do not select them.\n\n")
 	b.WriteString("| Rule | Checks that |\n|---|---|\n")
 	for _, r := range all {
 		fmt.Fprintf(b, "| [`%s`](#%s) | %s |\n", r.ID, anchor(r.ID), r.Title)

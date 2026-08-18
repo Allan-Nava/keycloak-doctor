@@ -11,7 +11,6 @@ Edit this file, not the issues: a synced issue's title, body, labels and milesto
 
 ## Milestones
 
-- **v0.2.0** — Pull-request gating: make the audit usable as a required check on the repository that holds the realm definition, not only as a report an operator reads in a terminal. Items: KD-10, KD-11, KD-12, KD-13.
 - **v0.3.0** — Rule coverage: the seven checks a realm that looks hardened still hides — a service account holding admin roles, a default role composite nobody reads, a direct grant flow that bypasses the MFA the browser flow enforces, missing consent on a realm that brokers third-party identities, signing keys that never rotate, a WebAuthn policy that verifies nothing, and SAML assertions nobody signs. Items: KD-1, KD-2, KD-3, KD-4, KD-5, KD-6, KD-7.
 - **v0.4.0** — Desired-state sources: audit the realm git says you should have, before an apply, instead of the one the server already became — `KeycloakRealmImport` custom resources and a Terraform plan JSON, decoded into the same partial model the export and the Admin API already produce. Items: KD-8, KD-9.
 - **v0.5.0** — Report ergonomics: the parts of the report an operator argues with — thresholds that are genuinely site policy moved into a config file, `--explain RULE` for the rationale and the exact admin console path, and a diff between two exports to show what a change did to a realm's posture. Items: KD-14, KD-15, KD-16.
@@ -32,10 +31,6 @@ Edit this file, not the issues: a synced issue's title, body, labels and milesto
 
 - **KD-8** — Kubernetes/CRD source: read realms from `KeycloakRealmImport` custom resources so the audit runs on the desired state in git rather than on the live server.
 - **KD-9** — Terraform source: audit `keycloak_realm` / `keycloak_openid_client` resources from a Terraform plan JSON, for a pre-apply gate.
-- **KD-10** — SARIF output, so findings land in the GitHub code scanning tab of the repo that holds the realm definition (checkfleet already has a renderer worth mirroring).
-- **KD-11** — GitHub Action (`action.yml`) wrapping `audit --output sarif --exit-on bad`, plus a documented workflow for auditing an export committed to a repo.
-- **KD-12** — Baseline file: `--baseline audit.json --fail-on-new`, so a realm with known accepted findings still gates on regressions.
-- **KD-13** — Suppression file with an expiry date per rule/target, and a rule that reports suppressions past their expiry.
 
 ### Quality of report
 
@@ -49,6 +44,10 @@ Edit this file, not the issues: a synced issue's title, body, labels and milesto
 
 ## Done
 
+- **KD-10** — v0.2.0: SARIF 2.1.0 output, with the rule catalogue in the tool descriptor, stable fingerprints and a physical location when the source is a file in the repository.
+- **KD-11** — v0.2.0: GitHub Action (`action.yml`) that downloads and verifies the release binary, writes the report, sets `worst`/`suppressed`/`exit-code` outputs and gates the step; self-tested in CI against the working tree with `version: path`.
+- **KD-12** — v0.2.0: `--baseline audit.json` marks what the baseline does not have, `--fail-on-new` narrows `--exit-on` to it.
+- **KD-13** — v0.2.0: `--suppress` file with a required expiry date and reason per entry, plus `suppression/expired` and `suppression/unmatched` findings about the file itself.
 - **KD-20** — v0.1.5: distribuzione — immagine Docker `FROM scratch` su GHCR (multi-arch, con smoke test che distingue le fixture e verifica utente non-root e assenza di shell) e formula Homebrew nel tap che è questo repo, riallineata dal workflow di release.
 - **KD-19** — v0.1.3: logo (shield, keyhole, pulsazione) in `docs/assets/`, brand guidelines in `docs/brand.md`, mark e favicon serviti dal sito e in testa al README.
 - **KD-17** — v0.1.2: documentation site on GitHub Pages (`internal/site`, `cmd/gen-site`, `.github/workflows/pages.yml`), generated from the Markdown documents and from the compiled rule catalogue, with the reference filterable in the browser.

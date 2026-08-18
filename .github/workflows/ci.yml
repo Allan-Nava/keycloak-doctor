@@ -76,3 +76,54 @@ jobs:
           go install github.com/golangci/golangci-lint/v2/cmd/golangci-lint@v2.12.2
           golangci-lint --version
           golangci-lint run
+
+  # The action is a deliverable too: it has to install the tool, write a report,
+  # set its outputs and — the part that matters in a pull request — fail the step
+  # on the broken fixture while passing on the hardened one. It runs against the
+  # binary built from this commit ("version: path"), not the last release, so a
+  # change to the CLI cannot break the action silently.
+  action:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: "1.25"
+      - name: Build the binary the action will run
+        run: |
+          mkdir -p "$RUNNER_TEMP/bin"
+          go build -o "$RUNNER_TEMP/bin/keycloak-doctor" ./cmd/keycloak-doctor
+          echo "$RUNNER_TEMP/bin" >> "$GITHUB_PATH"
+
+      - id: hardened
+        uses: ./
+        with:
+          version: path
+          path: testdata/hardened-realm.json
+          output: json
+          out-file: hardened.json
+          exit-on: warn
+
+      - id: insecure
+        continue-on-error: true
+        uses: ./
+        with:
+          version: path
+          path: testdata/insecure-realm.json
+          output: sarif
+          out-file: insecure.sarif
+          exit-on: bad
+          summary: "false"
+
+      - name: The action gated exactly where it had to
+        run: |
+          set -eu
+          hardened_worst='${{ steps.hardened.outputs.worst }}'
+          insecure_worst='${{ steps.insecure.outputs.worst }}'
+          insecure_code='${{ steps.insecure.outputs.exit-code }}'
+          [ "$hardened_worst" = "OK" ] || { echo "::error::hardened fixture reported $hardened_worst"; exit 1; }
+          [ "$insecure_worst" = "BAD" ] || { echo "::error::insecure fixture reported $insecure_worst"; exit 1; }
+          [ "$insecure_code" != "0" ] || { echo "::error::--exit-on bad did not gate through the action"; exit 1; }
+          test -s hardened.json
+          test -s insecure.sarif
+          python3 -c "import json,sys; d=json.load(open('insecure.sarif')); sys.exit(0 if d['runs'][0]['results'] else 1)"

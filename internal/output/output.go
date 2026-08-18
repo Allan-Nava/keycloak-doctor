@@ -23,10 +23,13 @@ const (
 	Text     Format = "text"
 	Markdown Format = "markdown"
 	JSON     Format = "json"
+	SARIF    Format = "sarif"
 )
 
 // Formats lists the supported format names, for usage text and validation.
-func Formats() []string { return []string{string(Text), string(Markdown), string(JSON)} }
+func Formats() []string {
+	return []string{string(Text), string(Markdown), string(JSON), string(SARIF)}
+}
 
 // Options tunes rendering.
 type Options struct {
@@ -35,6 +38,10 @@ type Options struct {
 	Color bool
 	// Version is stamped in the header.
 	Version string
+	// Rules is the catalogue, for the formats that describe the tool as well as its
+	// findings (SARIF). It is passed in rather than imported so this package still
+	// cannot reach the rules or the realm model.
+	Rules []RuleInfo
 }
 
 // Render writes the result in the named format.
@@ -46,6 +53,8 @@ func Render(w io.Writer, format Format, res engine.Result, opts Options) error {
 		return renderMarkdown(w, res, opts)
 	case JSON:
 		return renderJSON(w, res, opts)
+	case SARIF:
+		return renderSARIF(w, res, opts)
 	default:
 		return fmt.Errorf("unknown output format %q (want %s)", format, strings.Join(Formats(), ", "))
 	}
@@ -91,6 +100,11 @@ func renderText(w io.Writer, res engine.Result, opts Options) error {
 
 	header := fmt.Sprintf("keycloak-doctor %s · %s · %d rule(s) · %s · %s",
 		orDash(opts.Version), plural(len(res.Realms), "realm"), res.Rules, orDash(res.Source), res.Duration.Round(time.Millisecond))
+	if res.Suppressed > 0 {
+		// Never a silent suppression: the count sits in the header, where the run is
+		// described, not in a footnote.
+		header += fmt.Sprintf(" · %d suppressed", res.Suppressed)
+	}
 	if _, err := fmt.Fprintln(w, header); err != nil {
 		return err
 	}
@@ -112,7 +126,12 @@ func renderText(w io.Writer, res engine.Result, opts Options) error {
 		scopeW = max(scopeW, len(scopes[i]))
 	}
 	for i, f := range res.Findings {
-		line := fmt.Sprintf("%-5s  %-*s  %-*s  %s", paint(f.Status, string(f.Status)), ruleW, f.Rule, scopeW, scopes[i], f.Message)
+		message := f.Message
+		if f.New {
+			// Only when a baseline was given: it marks what changed since it was taken.
+			message = "NEW · " + message
+		}
+		line := fmt.Sprintf("%-5s  %-*s  %-*s  %s", paint(f.Status, string(f.Status)), ruleW, f.Rule, scopeW, scopes[i], message)
 		if _, err := fmt.Fprintln(w, line); err != nil {
 			return err
 		}
@@ -141,6 +160,12 @@ func renderMarkdown(w io.Writer, res engine.Result, opts Options) error {
 	fmt.Fprintf(b, "- **Findings**: %s\n", summaryLine(sum))
 	fmt.Fprintf(b, "- **Rules**: %d\n", res.Rules)
 	fmt.Fprintf(b, "- **Source**: `%s`\n", orDash(res.Source))
+	if res.Suppressed > 0 {
+		fmt.Fprintf(b, "- **Suppressed**: %s removed by the suppression file\n", plural(res.Suppressed, "finding"))
+	}
+	if n := len(engine.OnlyNew(res.Findings)); n > 0 {
+		fmt.Fprintf(b, "- **New since the baseline**: %d\n", n)
+	}
 	fmt.Fprintf(b, "- **Run**: %s in %s (keycloak-doctor %s)\n\n",
 		res.Started.UTC().Format(time.RFC3339), res.Duration.Round(time.Millisecond), orDash(opts.Version))
 
@@ -150,7 +175,7 @@ func renderMarkdown(w io.Writer, res engine.Result, opts Options) error {
 	} else {
 		b.WriteString("## Needs attention\n\n")
 		for _, f := range attention {
-			fmt.Fprintf(b, "- **%s** `%s` — %s: %s\n", f.Status, f.Rule, scope(f), f.Message)
+			fmt.Fprintf(b, "- **%s** `%s` — %s: %s%s\n", f.Status, f.Rule, scope(f), newMark(f), f.Message)
 			if f.Remediation != "" {
 				fmt.Fprintf(b, "  - _%s_\n", f.Remediation)
 			}
@@ -161,8 +186,8 @@ func renderMarkdown(w io.Writer, res engine.Result, opts Options) error {
 	b.WriteString("## All findings\n\n")
 	b.WriteString("| Status | Rule | Realm | Target | Finding |\n|---|---|---|---|---|\n")
 	for _, f := range res.Findings {
-		fmt.Fprintf(b, "| %s | `%s` | %s | %s | %s |\n",
-			f.Status, f.Rule, mdCell(f.Realm), mdCell(f.Target), mdCell(f.Message))
+		fmt.Fprintf(b, "| %s | `%s` | %s | %s | %s%s |\n",
+			f.Status, f.Rule, mdCell(f.Realm), mdCell(f.Target), newMark(f), mdCell(f.Message))
 	}
 	_, err := io.WriteString(w, b.String())
 	return err
@@ -178,21 +203,25 @@ type jsonResult struct {
 	Worst    engine.Status         `json:"worst"`
 	Summary  map[engine.Status]int `json:"summary"`
 	Findings []engine.Finding      `json:"findings"`
-	Started  time.Time             `json:"started"`
-	Duration int64                 `json:"duration_ns"`
+	// Suppressed is part of the contract too: a pipeline that gates on `worst` has
+	// to be able to see that findings were removed from the run.
+	Suppressed int       `json:"suppressed,omitempty"`
+	Started    time.Time `json:"started"`
+	Duration   int64     `json:"duration_ns"`
 }
 
 func renderJSON(w io.Writer, res engine.Result, opts Options) error {
 	out := jsonResult{
-		Version:  opts.Version,
-		Source:   res.Source,
-		Realms:   res.Realms,
-		Rules:    res.Rules,
-		Worst:    engine.Worst(res.Findings),
-		Summary:  engine.Summarize(res.Findings),
-		Findings: res.Findings,
-		Started:  res.Started,
-		Duration: res.Duration.Nanoseconds(),
+		Version:    opts.Version,
+		Source:     res.Source,
+		Realms:     res.Realms,
+		Rules:      res.Rules,
+		Worst:      engine.Worst(res.Findings),
+		Summary:    engine.Summarize(res.Findings),
+		Findings:   res.Findings,
+		Suppressed: res.Suppressed,
+		Started:    res.Started,
+		Duration:   res.Duration.Nanoseconds(),
 	}
 	if out.Realms == nil {
 		out.Realms = []string{}
@@ -226,6 +255,14 @@ func summaryLine(sum map[engine.Status]int) string {
 		return "no findings"
 	}
 	return strings.Join(parts, " · ")
+}
+
+// newMark labels a finding the baseline did not contain.
+func newMark(f engine.Finding) string {
+	if f.New {
+		return "**NEW** "
+	}
+	return ""
 }
 
 func mdCell(s string) string {

@@ -59,9 +59,10 @@ func main() {
 
 func usage() {
 	fmt.Fprintln(os.Stderr, `usage:
-  keycloak-doctor audit <realm-export.json|export-dir> [--realm NAME,...] [--output text|markdown|json]
+  keycloak-doctor audit <realm-export.json|export-dir> [--realm NAME,...] [--output text|markdown|json|sarif]
                         [--out-file PATH] [--only RULE|CATEGORY,...] [--skip RULE|CATEGORY,...]
                         [--min-severity ok|warn|bad|error] [--no-color] [--exit-on warn|bad|error] [--exit-code N]
+                        [--baseline audit.json [--fail-on-new]] [--suppress suppressions.json]
   keycloak-doctor audit --url https://sso.example.com [--realm NAME,... | --all-realms]
                         --client-id ID --client-secret-env VAR [--auth-realm master]
                         [--username USER --password-env VAR] [--insecure] [--timeout 15s] [...same output flags]
@@ -69,5 +70,9 @@ func usage() {
   keycloak-doctor version
 
 Credentials are read from the environment, never from a flag value: --client-secret-env
-and --password-env name the variable that holds them.`)
+and --password-env name the variable that holds them.
+
+--output sarif writes GitHub code scanning alerts; --baseline compares against a
+previous --output json run and --fail-on-new narrows --exit-on to what changed;
+--suppress accepts findings that each carry an expiry date and a reason.`)
 }

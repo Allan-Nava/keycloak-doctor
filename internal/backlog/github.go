@@ -284,8 +284,18 @@ func (g *GitHub) updateIssue(ctx context.Context, it Item, is ghIssue, numbers m
 	if is.Milestone != nil {
 		current = is.Milestone.Number
 	}
+	// The sync only manages membership of the milestones the file declares. A
+	// milestone BACKLOG.md no longer mentions is a released one, and its issues are
+	// the record of what shipped in it: dropping a shipped milestone from the file
+	// must not strip it off the issues that closed under it.
+	declared := false
+	for _, n := range numbers {
+		if n != 0 && n == current {
+			declared = true
+		}
+	}
 	switch want := numbers[it.Milestone]; {
-	case it.Milestone == "" && current != 0:
+	case it.Milestone == "" && current != 0 && declared:
 		patch["milestone"] = nil
 		changed = append(changed, "milestone cleared")
 	case it.Milestone != "" && want > 0 && want != current:

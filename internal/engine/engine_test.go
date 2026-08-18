@@ -91,3 +91,72 @@ func TestWorstAndSummarize(t *testing.T) {
 		t.Errorf("unexpected summary: %+v", sum)
 	}
 }
+
+func TestMarkNewFlagsWhatTheBaselineDoesNotHave(t *testing.T) {
+	baseline := []Finding{
+		{Rule: "client/pkce", Realm: "prod", Target: "spa", Status: BAD, Message: "was already broken"},
+		{Rule: "realm/enabled", Realm: "prod", Status: OK, Message: "the realm is enabled"},
+		{Rule: "keys/rsa-size", Realm: "prod", Target: "legacy", Status: WARN},
+	}
+	findings := []Finding{
+		// same finding, different message: the message carries counts and lifespans
+		// that move without the posture moving, so it must not make it "new".
+		{Rule: "client/pkce", Realm: "prod", Target: "spa", Status: BAD, Message: "still broken, reworded"},
+		// present as OK in the baseline: "not there" and "there and passing" are
+		// different, and this is the case that regressed once.
+		{Rule: "realm/enabled", Realm: "prod", Status: OK},
+		// WARN that became BAD: a regression, so new.
+		{Rule: "keys/rsa-size", Realm: "prod", Target: "legacy", Status: BAD},
+		// never seen.
+		{Rule: "realm/brute-force", Realm: "prod", Status: BAD},
+		// same rule, another target: a different finding.
+		{Rule: "client/pkce", Realm: "prod", Target: "another-spa", Status: BAD},
+	}
+
+	if got, want := MarkNew(findings, baseline), 3; got != want {
+		t.Errorf("MarkNew = %d, want %d", got, want)
+	}
+	for i, want := range []bool{false, false, true, true, true} {
+		if findings[i].New != want {
+			t.Errorf("findings[%d] (%s %s) New = %v, want %v", i, findings[i].Rule, findings[i].Target, findings[i].New, want)
+		}
+	}
+
+	only := OnlyNew(findings)
+	if len(only) != 3 {
+		t.Fatalf("OnlyNew kept %d, want 3", len(only))
+	}
+	for _, f := range only {
+		if !f.New {
+			t.Errorf("OnlyNew kept a finding that is not new: %+v", f)
+		}
+	}
+}
+
+func TestMarkNewImprovementIsNotNew(t *testing.T) {
+	baseline := []Finding{{Rule: "client/pkce", Realm: "prod", Target: "spa", Status: BAD}}
+	findings := []Finding{{Rule: "client/pkce", Realm: "prod", Target: "spa", Status: WARN}}
+	if n := MarkNew(findings, baseline); n != 0 || findings[0].New {
+		t.Errorf("a BAD that became a WARN is an improvement, not a regression: n=%d new=%v", n, findings[0].New)
+	}
+}
+
+func TestMarkNewWithAnEmptyBaseline(t *testing.T) {
+	findings := []Finding{{Rule: "a/b", Realm: "prod", Status: BAD}, {Rule: "c/d", Realm: "prod", Status: OK}}
+	if got := MarkNew(findings, nil); got != 2 {
+		t.Errorf("MarkNew against no baseline = %d, want every finding (2)", got)
+	}
+}
+
+func TestMarkNewKeepsTheWorstBaselineEntry(t *testing.T) {
+	// A directory export can list the same realm twice; the baseline then holds two
+	// entries for one finding, and the worst of them is the state being compared to.
+	baseline := []Finding{
+		{Rule: "a/b", Realm: "prod", Status: WARN},
+		{Rule: "a/b", Realm: "prod", Status: BAD},
+	}
+	findings := []Finding{{Rule: "a/b", Realm: "prod", Status: BAD}}
+	if got := MarkNew(findings, baseline); got != 0 {
+		t.Errorf("MarkNew = %d, want 0: the baseline already had this at BAD", got)
+	}
+}
