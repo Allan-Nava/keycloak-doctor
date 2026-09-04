@@ -10,11 +10,13 @@ import (
 	"embed"
 	"fmt"
 	"html/template"
+	"io"
 	"io/fs"
 	"os"
 	"path/filepath"
 	"sort"
 	"strings"
+	"time"
 )
 
 //go:embed assets
@@ -37,13 +39,34 @@ type Page struct {
 	TOC      []Heading     // headings for the sidebar, level 2 only
 	Hero     bool          // render the mark, the title and the actions as a hero band
 	Actions  []Action      // hero buttons, ignored unless Hero is set
+	// Lang is the BCP 47 tag of the page's own content, "en" when empty. The
+	// changelog of this project is written in Italian, and saying so is both an
+	// accessibility fact (a screen reader pronounces it) and an indexing one.
+	Lang string
+	// NoIndex keeps a page out of the sitemap and asks crawlers to skip it — the
+	// 404 page is the reason this exists.
+	NoIndex bool
+	// JSONLD is structured data for this page, already encoded. It goes into a
+	// <script type="application/ld+json">.
+	JSONLD template.JS
+	// Modified is the time the page's source last changed; it becomes the sitemap's
+	// lastmod. Zero leaves the entry without one, which is better than a made-up
+	// date.
+	Modified time.Time
 }
 
 // Site is the whole documentation site.
 type Site struct {
-	Name      string
-	Tagline   string
-	RepoURL   string
+	Name    string
+	Tagline string
+	RepoURL string
+	// BaseURL is where the site is served from, with a trailing slash. It is what
+	// makes the canonical links, the Open Graph tags and the sitemap absolute —
+	// they cannot be relative, so without it those are all left out rather than
+	// emitted pointing at nothing.
+	BaseURL string
+	// OGImage is the file name of the link-preview image, served next to the pages.
+	OGImage   string
 	Pages     []Page
 	Generator string // the command that produced the site, shown in the footer
 	// Files are extra static files to serve next to the pages, by name. The logo
@@ -53,11 +76,14 @@ type Site struct {
 }
 
 type pageData struct {
-	Site    Site
-	Page    Page
-	Nav     []navItem
-	TOC     []Heading
-	Version string
+	Site      Site
+	Page      Page
+	Nav       []navItem
+	TOC       []Heading
+	Canonical string // absolute URL of this page, empty when the site has no BaseURL
+	OGImage   string // absolute URL of the preview image, empty when there is none
+	Lang      string // BCP 47, for <html lang>
+	OGLocale  string // language_TERRITORY, which is the form Open Graph asks for
 }
 
 type navItem struct {
@@ -78,7 +104,16 @@ func (s Site) Build(dir string) error {
 	}
 
 	for _, p := range s.Pages {
-		data := pageData{Site: s, Page: p, Nav: s.nav(p), TOC: sectionHeadings(p.TOC)}
+		data := pageData{
+			Site:      s,
+			Page:      p,
+			Nav:       s.nav(p),
+			TOC:       sectionHeadings(p.TOC),
+			Canonical: s.canonical(p),
+			OGImage:   s.ogImage(),
+			Lang:      p.lang(),
+			OGLocale:  ogLocale(p.lang()),
+		}
 		f, err := os.Create(filepath.Join(dir, p.Slug+".html")) //nolint:gosec // the slug comes from the generator, not from input
 		if err != nil {
 			return err
@@ -108,6 +143,18 @@ func (s Site) Build(dir string) error {
 		}
 	}
 
+	// The crawler-facing files are generated from the pages, so they cannot list a
+	// page the site does not serve. Without a BaseURL there is nothing absolute to
+	// put in them, and half a sitemap is worse than none.
+	if s.BaseURL != "" {
+		if err := s.writeFile(dir, sitemapFile, s.writeSitemap); err != nil {
+			return err
+		}
+		if err := s.writeFile(dir, robotsFile, s.writeRobots); err != nil {
+			return err
+		}
+	}
+
 	names := make([]string, 0, len(s.Files))
 	for name := range s.Files {
 		names = append(names, name)
@@ -122,6 +169,58 @@ func (s Site) Build(dir string) error {
 		}
 	}
 	return nil
+}
+
+// writeFile creates one generated file with the given writer.
+func (s Site) writeFile(dir, name string, write func(io.Writer) error) error {
+	f, err := os.Create(filepath.Join(dir, name)) //nolint:gosec // a fixed name in the output directory
+	if err != nil {
+		return err
+	}
+	err = write(f)
+	if closeErr := f.Close(); err == nil {
+		err = closeErr
+	}
+	if err != nil {
+		return fmt.Errorf("writing %s: %w", name, err)
+	}
+	return nil
+}
+
+func (s Site) canonical(p Page) string {
+	if s.BaseURL == "" {
+		return ""
+	}
+	return p.URL(s.BaseURL)
+}
+
+func (s Site) ogImage() string {
+	if s.BaseURL == "" || s.OGImage == "" {
+		return ""
+	}
+	return strings.TrimSuffix(s.BaseURL, "/") + "/" + s.OGImage
+}
+
+// ogLocale renders a language tag the way Open Graph wants it: language_TERRITORY.
+// Only the languages this site is written in need mapping; anything else is
+// passed through, because inventing a territory for it would be worse than
+// leaving it as the author wrote it.
+func ogLocale(lang string) string {
+	switch lang {
+	case "en":
+		return "en_US"
+	case "it":
+		return "it_IT"
+	default:
+		return lang
+	}
+}
+
+func (p Page) lang() string {
+	if p.Lang != "" {
+		return p.Lang
+	}
+	return "en"
 }
 
 func (s Site) nav(current Page) []navItem {
@@ -145,6 +244,15 @@ func sectionHeadings(all []Heading) []Heading {
 		}
 	}
 	return out
+}
+
+// OGType is the Open Graph type: the home page is the site, every other page is
+// a document about it.
+func (p Page) OGType() string {
+	if p.Slug == "index" {
+		return "website"
+	}
+	return "article"
 }
 
 // NavTitle is the title of a page as it should read in a browser tab.

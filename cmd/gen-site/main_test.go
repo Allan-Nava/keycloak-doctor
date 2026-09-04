@@ -1,10 +1,14 @@
 package main
 
 import (
+	"encoding/json"
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 
 	"github.com/Allan-Nava/keycloak-doctor/internal/rules"
+	"github.com/Allan-Nava/keycloak-doctor/internal/site"
 )
 
 func TestSplitLiftsTitleAndSubtitle(t *testing.T) {
@@ -49,12 +53,20 @@ func TestBrandFilesAreServedWithTheSite(t *testing.T) {
 	// The mark lives in the repository and is copied verbatim: the README and the
 	// site must not drift onto two different files.
 	for name, path := range brandFiles {
-		if !strings.HasPrefix(path, "docs/assets/") || !strings.HasSuffix(name, ".svg") {
-			t.Errorf("%s -> %s: the mark is expected under docs/assets/ as an SVG", name, path)
+		if !strings.HasPrefix(path, "docs/assets/") {
+			t.Errorf("%s -> %s: the brand files live under docs/assets/", name, path)
+		}
+		if strings.TrimSuffix(name, filepath.Ext(name)) == "" || filepath.Ext(name) != filepath.Ext(path) {
+			t.Errorf("%s -> %s: the served name and the source must be the same kind of file", name, path)
 		}
 	}
 	if _, ok := brandFiles["favicon.svg"]; !ok {
 		t.Error("no favicon among the brand files")
+	}
+	// The preview image has to be a raster: no crawler and no chat client renders
+	// SVG, so an SVG here would mean no preview at all.
+	if got := brandFiles[ogImage]; filepath.Ext(got) != ".png" {
+		t.Errorf("the link-preview image is %q, want a PNG", got)
 	}
 	if got := rewrite("assets/logo.svg"); got != "logo.svg" {
 		t.Errorf("rewrite(\"assets/logo.svg\") = %q, want the file the site serves", got)
@@ -138,6 +150,90 @@ func TestRulesPageRationaleIsEscaped(t *testing.T) {
 	for _, unsafe := range []string{"<script", "onerror="} {
 		if strings.Contains(string(page.Content), unsafe) {
 			t.Errorf("the reference page carries %q", unsafe)
+		}
+	}
+}
+
+func TestHomeJSONLDIsValidAndHonest(t *testing.T) {
+	var data map[string]any
+	if err := json.Unmarshal([]byte(homeJSONLD(30)), &data); err != nil {
+		t.Fatalf("the structured data is not valid JSON: %v", err)
+	}
+	if data["@type"] != "SoftwareApplication" || data["url"] != baseURL {
+		t.Errorf("@type = %v, url = %v", data["@type"], data["url"])
+	}
+	// The licence is noncommercial, and structured data is exactly the place where
+	// a "free" claim gets repeated by a crawler without its conditions.
+	offer, ok := data["offers"].(map[string]any)
+	if !ok {
+		t.Fatalf("offers = %v", data["offers"])
+	}
+	desc, _ := offer["description"].(string)
+	if !strings.Contains(desc, "Noncommercial") || !strings.Contains(desc, "Commercial use requires a licence") {
+		t.Errorf("the offer does not carry the licence condition: %q", desc)
+	}
+	if req, _ := data["softwareRequirements"].(string); !strings.Contains(req, "30 rules") {
+		t.Errorf("the rule count is not taken from the catalogue: %q", req)
+	}
+}
+
+func TestNotFoundPageIsUsefulAndUnindexed(t *testing.T) {
+	page := notFoundPage()
+	if page.Slug != "404" {
+		t.Errorf("slug = %q, want 404 (the file name GitHub Pages serves)", page.Slug)
+	}
+	if !page.NoIndex {
+		t.Error("the 404 page must not be indexable")
+	}
+	// A 404 that only says "not found" wastes the visit.
+	for _, want := range []string{"index.html", "rules.html", "ci.html", repoURL} {
+		if !strings.Contains(string(page.Content), want) {
+			t.Errorf("the 404 page does not offer %s", want)
+		}
+	}
+}
+
+func TestBuildPagesCarrySEOFields(t *testing.T) {
+	// buildPages reads the repository, so this test runs from the module root — and
+	// puts the working directory back, or every test after it would see a different
+	// one.
+	cwd, err := os.Getwd()
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() {
+		if err := os.Chdir(cwd); err != nil {
+			t.Fatal(err)
+		}
+	})
+	if err := os.Chdir("../.."); err != nil {
+		t.Fatal(err)
+	}
+	pages, err := buildPages(rules.All())
+	if err != nil {
+		t.Fatalf("buildPages: %v", err)
+	}
+
+	bySlug := map[string]site.Page{}
+	for _, p := range pages {
+		bySlug[p.Slug] = p
+	}
+	if got := bySlug["changelog"].Lang; got != "it" {
+		t.Errorf("the changelog is written in Italian, lang = %q", got)
+	}
+	if got := bySlug["index"].Lang; got != "" {
+		t.Errorf("an English page needs no override, lang = %q", got)
+	}
+	if bySlug["index"].JSONLD == "" {
+		t.Error("the home page carries no structured data")
+	}
+	if _, ok := bySlug["404"]; !ok {
+		t.Error("no 404 page was generated")
+	}
+	// Every page that has a source on disk gets a date for the sitemap.
+	for _, slug := range []string{"index", "ci", "roadmap", "rules"} {
+		if bySlug[slug].Modified.IsZero() {
+			t.Errorf("%s has no modification time, so the sitemap cannot date it", slug)
 		}
 	}
 }

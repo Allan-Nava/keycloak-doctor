@@ -1,0 +1,42 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 630" width="1200" height="630" role="img" aria-label="keycloak-doctor">
+  <title>keycloak-doctor</title>
+  <!-- Source of docs/assets/og-card.png, the image a link preview shows. It is
+       rendered to PNG and committed, because crawlers and chat clients do not
+       render SVG — see docs/brand.md for the one command that regenerates it. -->
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#0B3A66"/>
+      <stop offset="1" stop-color="#071F35"/>
+    </linearGradient>
+    <radialGradient id="glow" cx="0.18" cy="0" r="0.75">
+      <stop offset="0" stop-color="#F0A02A" stop-opacity="0.28"/>
+      <stop offset="1" stop-color="#F0A02A" stop-opacity="0"/>
+    </radialGradient>
+    <clipPath id="markShield">
+      <path d="M32 8 52 14.5V32c0 11.6-8.4 20.6-20 24-11.6-3.4-20-12.4-20-24V14.5Z"/>
+    </clipPath>
+  </defs>
+
+  <rect width="1200" height="630" fill="url(#bg)"/>
+  <rect width="1200" height="630" fill="url(#glow)"/>
+
+  <!-- the mark, drawn at scale rather than embedded, so it stays one geometry -->
+  <g transform="translate(96 132) scale(2.6)">
+    <rect width="64" height="64" rx="14" fill="#0B3A66"/>
+    <path d="M32 8 52 14.5V32c0 11.6-8.4 20.6-20 24-11.6-3.4-20-12.4-20-24V14.5Z" fill="#EAF2FB"/>
+    <circle cx="32" cy="26" r="6.2" fill="#0B3A66"/>
+    <path d="M29.2 30h5.6l1.9 9H27.3Z" fill="#0B3A66"/>
+    <path d="M8 47H26L30 42l4 9.5 3-4.5H56" fill="none" stroke="#F0A02A" stroke-width="3.4" stroke-linecap="round" stroke-linejoin="round" clip-path="url(#markShield)"/>
+  </g>
+
+  <text x="330" y="212" fill="#FFFFFF" font-family="ui-monospace, Menlo, monospace" font-size="76" font-weight="600" letter-spacing="-2">keycloak-doctor</text>
+  <text x="330" y="286" fill="#C6D8EC" font-family="-apple-system, Helvetica, Arial, sans-serif" font-size="35">Audit a Keycloak realm for the mistakes</text>
+  <text x="330" y="336" fill="#C6D8EC" font-family="-apple-system, Helvetica, Arial, sans-serif" font-size="35">that actually get exploited.</text>
+
+  <g font-family="ui-monospace, Menlo, monospace" font-size="27">
+    <text x="330" y="424" fill="#8FB4D8">30 rules · export file or live server</text>
+    <text x="330" y="470" fill="#F0A02A">$ keycloak-doctor audit realm-export.json</text>
+  </g>
+
+  <text x="96" y="566" fill="#6E93B8" font-family="ui-monospace, Menlo, monospace" font-size="24">allan-nava.github.io/keycloak-doctor</text>
+</svg>

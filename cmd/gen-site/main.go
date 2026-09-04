@@ -14,21 +14,29 @@
 package main
 
 import (
+	"encoding/json"
 	"flag"
 	"fmt"
 	"html/template"
 	"os"
+	"path/filepath"
 	"sort"
 	"strings"
+	"time"
 
 	"github.com/Allan-Nava/keycloak-doctor/internal/rules"
 	"github.com/Allan-Nava/keycloak-doctor/internal/site"
 )
 
 const (
-	repoURL   = "https://github.com/Allan-Nava/keycloak-doctor"
-	blobURL   = repoURL + "/blob/main/"
+	repoURL = "https://github.com/Allan-Nava/keycloak-doctor"
+	blobURL = repoURL + "/blob/main/"
+	// baseURL is where GitHub Pages serves this project site from. It is what makes
+	// the canonical links, the link previews and the sitemap absolute.
+	baseURL   = "https://allan-nava.github.io/keycloak-doctor/"
+	ogImage   = "og-card.png"
 	siteName  = "keycloak-doctor"
+	tagline   = "Audit a Keycloak realm for the mistakes that actually get exploited."
 	generator = "go run ./cmd/gen-site"
 )
 
@@ -44,6 +52,11 @@ var docPages = []struct {
 	{"brand", "Brand", "docs/brand.md", ""},
 	{"changelog", "Changelog", "CHANGELOG.md", "Il changelog di questo progetto è in italiano."},
 }
+
+// docLang overrides the language of a page whose content is not in English. A
+// screen reader pronounces it, and a crawler indexes it, in the language the page
+// claims — so claiming the wrong one is a real defect, not a detail.
+var docLang = map[string]string{"changelog": "it"}
 
 // linkTargets maps a relative Markdown link onto the page that serves it. Every
 // other relative target is a file in the repository, so it goes to GitHub rather
@@ -69,6 +82,10 @@ var linkTargets = map[string]string{
 var brandFiles = map[string]string{
 	"logo.svg":    "docs/assets/logo.svg",
 	"favicon.svg": "docs/assets/favicon.svg",
+	// The link-preview image is a PNG on purpose: crawlers and chat clients do not
+	// render SVG. docs/assets/og-card.svg is its source, and docs/brand.md has the
+	// command that re-renders it.
+	ogImage: "docs/assets/og-card.png",
 }
 
 func main() {
@@ -81,8 +98,10 @@ func main() {
 
 	s := site.Site{
 		Name:      siteName,
-		Tagline:   "Audit a Keycloak realm for the mistakes that actually get exploited.",
+		Tagline:   tagline,
 		RepoURL:   repoURL,
+		BaseURL:   baseURL,
+		OGImage:   ogImage,
 		Generator: generator,
 	}
 
@@ -141,8 +160,11 @@ func buildPages(catalogue []rules.Rule) ([]site.Page, error) {
 			Subtitle: subtitle,
 			Content:  content,
 			TOC:      headings,
+			Lang:     docLang[d.slug],
+			Modified: sourceTime(d.file),
 		}
 		if d.slug == "index" {
+			page.JSONLD = homeJSONLD(len(catalogue))
 			page.Hero = true
 			page.Actions = []site.Action{
 				{Label: fmt.Sprintf("Browse the %d rules", len(catalogue)), Href: "rules.html", Primary: true},
@@ -162,7 +184,95 @@ func buildPages(catalogue []rules.Rule) ([]site.Page, error) {
 			pages = append(pages, reference)
 		}
 	}
-	return pages, nil
+	return append(pages, notFoundPage()), nil
+}
+
+// notFoundPage is what GitHub Pages serves for an unknown path. It carries
+// NoIndex, which keeps it out of the sitemap: a 404 in a sitemap is an invitation
+// to index it.
+func notFoundPage() site.Page {
+	return site.Page{
+		Slug:     "404",
+		Title:    "Page not found",
+		Subtitle: "That page is not here. It may have moved, or the link may have been to a file in the repository rather than to a page of this site.",
+		NoIndex:  true,
+		Content: template.HTML(`<ul>` + //nolint:gosec // a fixed string, no input
+			`<li><a href="index.html">Start from the overview</a> — what the tool checks and how to install it.</li>` +
+			`<li><a href="rules.html">The rule reference</a> — every rule, with the rationale, filterable.</li>` +
+			`<li><a href="ci.html">In CI</a> — the action, SARIF, baselines and suppressions.</li>` +
+			`<li><a href="` + repoURL + `">The repository</a> — the source, the releases and the issues.</li>` +
+			`</ul>`),
+	}
+}
+
+// homeJSONLD describes the tool for a search engine: what it is, what it costs,
+// and where its source is. Nothing here is a claim the page does not already make
+// in prose.
+func homeJSONLD(rules int) template.JS {
+	data := map[string]any{
+		"@context":             "https://schema.org",
+		"@type":                "SoftwareApplication",
+		"name":                 siteName,
+		"description":          tagline,
+		"url":                  baseURL,
+		"applicationCategory":  "DeveloperApplication",
+		"operatingSystem":      "Linux, macOS, Windows",
+		"softwareRequirements": fmt.Sprintf("A Keycloak realm export or Admin REST API access; %d rules ship in the binary", rules),
+		"license":              repoURL + "/blob/main/LICENSE",
+		"codeRepository":       repoURL,
+		"programmingLanguage":  "Go",
+		"image":                baseURL + ogImage,
+		"author": map[string]any{
+			"@type": "Person",
+			"name":  "Allan Nava",
+			"url":   "https://github.com/Allan-Nava",
+		},
+		// Free for the uses the licence allows; a company needs a commercial one, and
+		// pretending otherwise in structured data would be a lie a crawler repeats.
+		"offers": map[string]any{
+			"@type":         "Offer",
+			"price":         "0",
+			"priceCurrency": "USD",
+			"description":   "Free for personal projects, research, education, non-profits and public institutions (PolyForm Noncommercial 1.0.0). Commercial use requires a licence.",
+			"url":           baseURL + "commercial.html",
+		},
+	}
+	encoded, err := json.Marshal(data)
+	if err != nil {
+		// The map is a literal: an error here would be a programming mistake, and a
+		// page without structured data is better than a page with broken data.
+		fmt.Fprintln(os.Stderr, "gen-site: skipping the structured data:", err)
+		return ""
+	}
+	return template.JS(encoded) //nolint:gosec // encoded by encoding/json above
+}
+
+// newestOf is the most recent modification time in a glob. The rule reference has
+// no Markdown source — it is generated from the catalogue — so its date comes from
+// the code that defines the rules.
+func newestOf(pattern string) time.Time {
+	matches, err := filepath.Glob(pattern)
+	if err != nil {
+		return time.Time{}
+	}
+	var newest time.Time
+	for _, m := range matches {
+		if t := sourceTime(m); t.After(newest) {
+			newest = t
+		}
+	}
+	return newest
+}
+
+// sourceTime is the modification time of a page's source, for the sitemap's
+// lastmod. In a CI checkout every file carries the clone time, so lastmod becomes
+// the day of the deploy — true, if less precise than a commit date.
+func sourceTime(path string) time.Time {
+	info, err := os.Stat(path)
+	if err != nil {
+		return time.Time{}
+	}
+	return info.ModTime()
 }
 
 // split peels the leading "# Title" and the bold one-liner under it off a
@@ -295,6 +405,7 @@ func rulesPage(catalogue []rules.Rule) (site.Page, error) {
 		Slug:     "rules",
 		Nav:      "Rules",
 		Title:    "Rule reference",
+		Modified: newestOf("internal/rules/*.go"),
 		Subtitle: "The catalogue compiled into the binary, with the rationale for each rule.",
 		Content:  template.HTML(b.String()), //nolint:gosec // rendered by html/template above
 		TOC:      toc,

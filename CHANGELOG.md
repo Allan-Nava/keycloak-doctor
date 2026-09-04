@@ -3,6 +3,23 @@
 Tutte le modifiche rilevanti a questo progetto sono documentate qui.
 Il formato segue [Keep a Changelog](https://keepachangelog.com/it/1.1.0/) e il progetto usa il [Semantic Versioning](https://semver.org/lang/it/).
 
+## [0.2.1] - 2026-09-04
+
+SEO del sito della documentazione. Il binario `keycloak-doctor` non cambia.
+
+### Aggiunto
+
+- **`sitemap.xml` e `robots.txt` generati dalle pagine** (`internal/site/seo.go`): una sitemap mantenuta a mano è una sitemap che prima o poi elenca una pagina che il sito non serve più. La home compare come la directory (`…/keycloak-doctor/`), che è l'indirizzo che si condivide, non come `index.html`; `lastmod` viene dalla data del file sorgente della pagina (per la reference, dalla più recente tra i file del catalogo) e una pagina senza sorgente su disco resta **senza** `lastmod`, invece di prenderne una inventata.
+- **Canonical per pagina**, più **Open Graph e Twitter card** con `og:type` `website` sulla home e `article` sulle pagine di documentazione, `og:url` che concorda sempre col canonical, e `theme-color`.
+- **Card dei link preview** 1200×630: `docs/assets/og-card.svg` è la sorgente, `docs/assets/og-card.png` è ciò che viene servito — **committata di proposito**, perché nessun crawler e nessun client di chat renderizza SVG, e perché il testo della card è testo SVG reso con i font della macchina che lo renderizza (in CI non sono gli stessi). Il comando per rigenerarla è in `docs/brand.md`, e un test verifica che quel file resti un PNG.
+- **JSON-LD `SoftwareApplication`** sulla home, con il conteggio delle regole preso dal catalogo compilato. L'`Offer` porta la condizione della licenza per intero («free for personal projects… commercial use requires a licence»): i dati strutturati sono esattamente il posto dove un «free» viene ripetuto da un crawler senza le sue condizioni.
+- **`lang` per pagina**: il changelog è in italiano e ora lo dichiara (`lang="it"`, `og:locale="it_IT"`). È un fatto di accessibilità prima che di indicizzazione — uno screen reader pronuncia la pagina nella lingua che la pagina dichiara.
+- **Pagina 404** (`404.html`, quella che GitHub Pages serve su un path sconosciuto) con `noindex` e quattro link utili invece del solo «not found». È esclusa dalla sitemap: una 404 in sitemap è un invito a indicizzarla.
+
+### Nota
+
+Senza `BaseURL` il generatore non scrive sitemap né robots e omette canonical, `og:url` e `og:image`, invece di emetterli relativi o rotti. C'è un test anche per quello.
+
 ## [0.2.0] - 2026-08-17
 
 Milestone **v0.2.0 «Pull-request gating»** completata: l'audit diventa un required check sul repo che contiene la definizione del realm, non solo un report da leggere in terminale. Chiude KD-10, KD-11, KD-12, KD-13.
@@ -153,6 +170,7 @@ Prima release: audit della configurazione di un realm Keycloak, da file di expor
 - **Documentazione generata**: `docs/rules.md` prodotto da `go run ./cmd/gen-docs` dal catalogo compilato, con gate in CI che la rigenerazione sia un no-op.
 - **Test**: suite completa su fixture locali (`testdata/insecure-realm.json`, `testdata/hardened-realm.json`) e server `httptest` per l'Admin API — nessun test tocca la rete o un Keycloak reale.
 
+[0.2.1]: https://github.com/Allan-Nava/keycloak-doctor/releases/tag/v0.2.1
 [0.2.0]: https://github.com/Allan-Nava/keycloak-doctor/releases/tag/v0.2.0
 [0.1.7]: https://github.com/Allan-Nava/keycloak-doctor/releases/tag/v0.1.7
 [0.1.6]: https://github.com/Allan-Nava/keycloak-doctor/releases/tag/v0.1.6
