@@ -6,7 +6,7 @@
 # image that audits a production SSO server should not also carry a shell, a
 # package manager and a libc for someone to find.
 
-FROM golang:1.25-alpine AS build
+FROM golang:1.27-alpine AS build
 
 # ca-certificates is here for its bundle, which is copied into the final image;
 # the build itself fetches nothing.
