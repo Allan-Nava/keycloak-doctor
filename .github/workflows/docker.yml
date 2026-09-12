@@ -42,7 +42,7 @@ jobs:
 
       # Build for this runner first and exercise it, before anything is pushed.
       - name: Build for the smoke test
-        uses: docker/build-push-action@v6
+        uses: docker/build-push-action@v7
         with:
           context: .
           load: true
@@ -94,7 +94,7 @@ jobs:
 
       - name: Build and push
         if: github.event_name != 'pull_request'
-        uses: docker/build-push-action@v6
+        uses: docker/build-push-action@v7
         with:
           context: .
           platforms: linux/amd64,linux/arm64
